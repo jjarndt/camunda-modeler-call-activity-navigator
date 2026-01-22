@@ -1,41 +1,35 @@
 # Call Activity Navigator
 
-[![GitHub release](https://img.shields.io/github/v/release/jjarndt/camunda-modeler-call-activity-navigator)](https://github.com/jjarndt/camunda-modeler-call-activity-navigator/releases)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![GitHub Release](https://img.shields.io/github/v/release/jjarndt/camunda-modeler-call-activity-navigator)](https://github.com/jjarndt/camunda-modeler-call-activity-navigator/releases)
+[![Camunda Modeler 5.x+](https://img.shields.io/badge/Camunda%20Modeler-5.x+-blue)](https://camunda.com/download/modeler/)
+[![MIT License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-Camunda Modeler plugin for one-click navigation from Call Activities to referenced processes. Supports Camunda 7 and 8.
+A [Camunda Modeler](https://camunda.com/download/modeler/) plugin that enables one-click navigation from Call Activities to their referenced process definitions.
+
+**Features:**
+- Navigate directly from any Call Activity to its target process
+- Automatic indexing of all BPMN files in your workspace
+- Supports both Camunda 7 (`calledElement`) and Camunda 8 (`zeebe:CalledElement`)
 
 ## Installation
 
-**macOS/Linux:**
-```bash
-curl -fsSL https://raw.githubusercontent.com/jjarndt/camunda-modeler-call-activity-navigator/master/install.sh | bash
-```
+| Method | Instructions |
+|--------|--------------|
+| **Quick** (macOS/Linux) | `curl -fsSL https://raw.githubusercontent.com/jjarndt/camunda-modeler-call-activity-navigator/master/install.sh \| bash` |
+| **Download** | Extract [latest release](https://github.com/jjarndt/camunda-modeler-call-activity-navigator/releases/latest) to plugins directory |
+| **Manual** | Clone repo to plugins directory, run `npm install && npm run build` |
 
-**Download:** Get the [latest release](https://github.com/jjarndt/camunda-modeler-call-activity-navigator/releases/latest), extract to plugins directory, restart Modeler.
+<details>
+<summary><b>Plugin directory paths</b></summary>
 
-**Manual:**
-```bash
-cd <plugins-dir>  # See paths below
-git clone https://github.com/jjarndt/camunda-modeler-call-activity-navigator.git
-cd camunda-modeler-call-activity-navigator && npm install && npm run build
-```
+| OS | Path |
+|----|------|
+| Windows | `%APPDATA%\camunda-modeler\plugins\` |
+| macOS | `~/Library/Application Support/camunda-modeler/plugins/` |
+| Linux | `~/.config/camunda-modeler/plugins/` |
 
-Plugin paths: `%APPDATA%\camunda-modeler\plugins` (Win), `~/Library/Application Support/camunda-modeler/plugins` (Mac), `~/.config/camunda-modeler/plugins` (Linux)
-
-## Usage
-
-Click Call Activity → Click external link icon in context pad → Referenced process opens.
-
-## Development
-
-```bash
-npm install && npm run dev  # Watch mode
-```
-
-Link plugin dir for development: `ln -s <dev-folder> <plugins-dir>/camunda-modeler-call-activity-navigator`
-Reload: `F12` → `Ctrl+R` / `Cmd+R`
+</details>
 
 ## License
 
-MIT - Jakob Arndt
+[MIT](LICENSE) - [Jakob Arndt](https://github.com/jjarndt)
