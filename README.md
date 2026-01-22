@@ -20,11 +20,42 @@ curl -fsSL https://raw.githubusercontent.com/jjarndt/camunda-modeler-call-activi
   | bash
 ```
 
-**Option 2: [Download Release](https://github.com/jjarndt/camunda-modeler-call-activity-navigator/releases/latest)** (no npm required)
+**Option 2: Download Release** (no npm required)
 
-Extract ZIP to plugins directory and restart Modeler.
+<table>
+<tr><td><b>macOS</b></td></tr>
+<tr><td>
 
-**Option 3: Manual**
+```bash
+cd ~/Library/Application\ Support/camunda-modeler/plugins
+curl -LO https://github.com/jjarndt/camunda-modeler-call-activity-navigator/releases/latest/download/camunda-modeler-call-activity-navigator-1.0.0.zip
+unzip camunda-modeler-call-activity-navigator-1.0.0.zip && rm camunda-modeler-call-activity-navigator-1.0.0.zip
+```
+
+</td></tr>
+<tr><td><b>Linux</b></td></tr>
+<tr><td>
+
+```bash
+cd ~/.config/camunda-modeler/plugins
+curl -LO https://github.com/jjarndt/camunda-modeler-call-activity-navigator/releases/latest/download/camunda-modeler-call-activity-navigator-1.0.0.zip
+unzip camunda-modeler-call-activity-navigator-1.0.0.zip && rm camunda-modeler-call-activity-navigator-1.0.0.zip
+```
+
+</td></tr>
+<tr><td><b>Windows</b></td></tr>
+<tr><td>
+
+```powershell
+cd $env:APPDATA\camunda-modeler\plugins
+Invoke-WebRequest -Uri "https://github.com/jjarndt/camunda-modeler-call-activity-navigator/releases/latest/download/camunda-modeler-call-activity-navigator-1.0.0.zip" -OutFile "plugin.zip"
+Expand-Archive plugin.zip -DestinationPath . ; Remove-Item plugin.zip
+```
+
+</td></tr>
+</table>
+
+**Option 3: Build from Source**
 
 <table>
 <tr><td><b>macOS</b></td></tr>
