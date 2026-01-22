@@ -20,9 +20,9 @@ curl -fsSL https://raw.githubusercontent.com/jjarndt/camunda-modeler-call-activi
   | bash
 ```
 
-**Option 2: [Download Release](https://github.com/jjarndt/camunda-modeler-call-activity-navigator/releases/latest)**
+**Option 2: [Download Release](https://github.com/jjarndt/camunda-modeler-call-activity-navigator/releases/latest)** (no npm required)
 
-Extract to plugins directory and restart Modeler.
+Extract ZIP to plugins directory and restart Modeler.
 
 **Option 3: Manual**
 
