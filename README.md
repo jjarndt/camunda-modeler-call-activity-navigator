@@ -13,18 +13,12 @@ A [Camunda Modeler](https://camunda.com/download/modeler/) plugin that enables o
 
 ## Installation
 
-**Option 1: Quick Install**
-
-<table>
-<tr><td><b>macOS / Linux</b></td></tr>
-<tr><td>
+**Option 1: Quick Install** (macOS / Linux)
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/jjarndt/camunda-modeler-call-activity-navigator/master/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/jjarndt/camunda-modeler-call-activity-navigator/master/install.sh \
+  | bash
 ```
-
-</td></tr>
-</table>
 
 **Option 2: [Download Release](https://github.com/jjarndt/camunda-modeler-call-activity-navigator/releases/latest)**
 
