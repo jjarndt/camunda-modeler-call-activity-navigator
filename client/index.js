@@ -17,8 +17,10 @@ class CallActivityNavigatorPlugin extends PureComponent {
     this._indexedRoots = new Set();
     this._pendingFiles = [];
     this._isScanning = false;
+    this._indexingDeferred = true;
+    this._perfStartup = Date.now();
 
-    console.log('[CallActivityNavigator] Plugin initialized');
+    console.log('[CallActivityNavigator] Plugin initialized at', new Date(this._perfStartup).toISOString());
 
     const backend = _getGlobal('backend');
     this._backend = backend;
@@ -90,9 +92,7 @@ class CallActivityNavigatorPlugin extends PureComponent {
       }
     }
 
-    if (!this._isScanning && this._pendingFiles.length > 0) {
-      this._scanPendingFiles();
-    }
+    // Kein automatischer Scan mehr - nur Dateien sammeln (Lazy Indexing)
   }
 
   async _scanPendingFiles() {
@@ -100,30 +100,57 @@ class CallActivityNavigatorPlugin extends PureComponent {
 
     this._isScanning = true;
     const fileSystem = this._getGlobal('fileSystem');
+    const scanStart = Date.now();
 
-    while (this._pendingFiles.length > 0) {
-      const filePath = this._pendingFiles.shift();
+    // Alle pending files auf einmal holen
+    const filesToScan = [...this._pendingFiles];
+    this._pendingFiles = [];
 
-      try {
-        const file = await fileSystem.readFile(filePath);
-        const content = file.contents;
+    const BATCH_SIZE = 50; // Verhindert Memory-Spikes
 
-        const processMatch = content.match(/<bpmn2?:process[^>]+id="([^"]+)"/);
-        if (processMatch) {
+    for (let i = 0; i < filesToScan.length; i += BATCH_SIZE) {
+      const batch = filesToScan.slice(i, i + BATCH_SIZE);
+
+      // Parallele Reads mit Promise.allSettled
+      const results = await Promise.allSettled(
+        batch.map(async (filePath) => {
+          const file = await fileSystem.readFile(filePath);
+          const content = file.contents;
+          const processMatch = content.match(/<bpmn2?:process[^>]+id="([^"]+)"/);
+          return { filePath, processMatch };
+        })
+      );
+
+      // Ergebnisse verarbeiten
+      results.forEach(result => {
+        if (result.status === 'fulfilled' && result.value.processMatch) {
+          const { filePath, processMatch } = result.value;
           const processId = processMatch[1];
           this._processIndex.set(processId, { path: filePath });
           console.log('[CallActivityNavigator] Found process:', processId, 'in', filePath);
         }
-      } catch (error) {
-        // Ignore read errors
-      }
+      });
     }
 
     this._isScanning = false;
-    console.log('[CallActivityNavigator] Scan complete. Total processes:', this._processIndex.size);
+    const scanDuration = Date.now() - scanStart;
+    console.log(`[CallActivityNavigator] Scan completed in ${scanDuration}ms, ${this._processIndex.size} processes, ${filesToScan.length} files`);
   }
 
-  _handleOpenProcess(processId) {
+  async _handleOpenProcess(processId) {
+    // Falls Indexing noch nicht gelaufen ist, jetzt starten
+    if (this._indexingDeferred && this._pendingFiles.length > 0) {
+      this._indexingDeferred = false;
+
+      this._displayNotification({
+        type: 'info',
+        title: 'Indexing processes',
+        content: `Scanning ${this._pendingFiles.length} BPMN files...`
+      });
+
+      await this._scanPendingFiles();
+    }
+
     const processInfo = this._processIndex.get(processId);
 
     if (processInfo) {
