@@ -6,90 +6,93 @@
 
 A [Camunda Modeler](https://camunda.com/download/modeler/) plugin that enables one-click navigation from Call Activities to their referenced process definitions.
 
-**Features:**
 - Navigate directly from any Call Activity to its target process
 - Automatic indexing of all BPMN files in your workspace
-- Supports both Camunda 7 (`calledElement`) and Camunda 8 (`zeebe:CalledElement`)
+- Supports Camunda 7 (`calledElement`) and Camunda 8 (`zeebe:CalledElement`)
+
+---
 
 ## Installation
 
-**Option 1: Quick Install** (macOS / Linux)
+### Option 1: Quick Install
+> macOS / Linux only
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/jjarndt/camunda-modeler-call-activity-navigator/master/install.sh \
-  | bash
+curl -fsSL https://raw.githubusercontent.com/jjarndt/camunda-modeler-call-activity-navigator/master/install.sh | bash
 ```
 
-**Option 2: Download Release** (no npm required)
+---
 
-<table>
-<tr><td><b>macOS</b></td></tr>
-<tr><td>
+### Option 2: Download Release
+> No npm required — just extract and restart Modeler
+
+<details>
+<summary><b>macOS</b></summary>
 
 ```bash
 cd ~/Library/Application\ Support/camunda-modeler/plugins
 curl -LO https://github.com/jjarndt/camunda-modeler-call-activity-navigator/releases/latest/download/camunda-modeler-call-activity-navigator-1.0.0.zip
 unzip camunda-modeler-call-activity-navigator-1.0.0.zip && rm camunda-modeler-call-activity-navigator-1.0.0.zip
 ```
+</details>
 
-</td></tr>
-<tr><td><b>Linux</b></td></tr>
-<tr><td>
+<details>
+<summary><b>Linux</b></summary>
 
 ```bash
 cd ~/.config/camunda-modeler/plugins
 curl -LO https://github.com/jjarndt/camunda-modeler-call-activity-navigator/releases/latest/download/camunda-modeler-call-activity-navigator-1.0.0.zip
 unzip camunda-modeler-call-activity-navigator-1.0.0.zip && rm camunda-modeler-call-activity-navigator-1.0.0.zip
 ```
+</details>
 
-</td></tr>
-<tr><td><b>Windows</b></td></tr>
-<tr><td>
+<details>
+<summary><b>Windows</b></summary>
 
 ```powershell
 cd $env:APPDATA\camunda-modeler\plugins
 Invoke-WebRequest -Uri "https://github.com/jjarndt/camunda-modeler-call-activity-navigator/releases/latest/download/camunda-modeler-call-activity-navigator-1.0.0.zip" -OutFile "plugin.zip"
 Expand-Archive plugin.zip -DestinationPath . ; Remove-Item plugin.zip
 ```
+</details>
 
-</td></tr>
-</table>
+---
 
-**Option 3: Build from Source**
+### Option 3: Build from Source
+> Requires Node.js and npm
 
-<table>
-<tr><td><b>macOS</b></td></tr>
-<tr><td>
+<details>
+<summary><b>macOS</b></summary>
 
 ```bash
 cd ~/Library/Application\ Support/camunda-modeler/plugins
 git clone https://github.com/jjarndt/camunda-modeler-call-activity-navigator.git
 cd camunda-modeler-call-activity-navigator && npm i && npm run build
 ```
+</details>
 
-</td></tr>
-<tr><td><b>Linux</b></td></tr>
-<tr><td>
+<details>
+<summary><b>Linux</b></summary>
 
 ```bash
 cd ~/.config/camunda-modeler/plugins
 git clone https://github.com/jjarndt/camunda-modeler-call-activity-navigator.git
 cd camunda-modeler-call-activity-navigator && npm i && npm run build
 ```
+</details>
 
-</td></tr>
-<tr><td><b>Windows</b></td></tr>
-<tr><td>
+<details>
+<summary><b>Windows</b></summary>
 
 ```powershell
 cd $env:APPDATA\camunda-modeler\plugins
 git clone https://github.com/jjarndt/camunda-modeler-call-activity-navigator.git
 cd camunda-modeler-call-activity-navigator; npm i; npm run build
 ```
+</details>
 
-</td></tr>
-</table>
+---
 
 ## License
 
-[MIT](LICENSE) - [Jakob Arndt](https://github.com/jjarndt)
+[MIT](LICENSE) — [Jakob Arndt](https://github.com/jjarndt)
