@@ -14,16 +14,7 @@ A [Camunda Modeler](https://camunda.com/download/modeler/) plugin that enables o
 
 ## Installation
 
-### Option 1: Quick Install
-> macOS / Linux only
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/jjarndt/camunda-modeler-call-activity-navigator/master/install.sh | bash
-```
-
----
-
-### Option 2: Download Release
+### Download Release
 > No npm required — just extract and restart Modeler
 
 <details>
@@ -58,7 +49,7 @@ Expand-Archive plugin.zip -DestinationPath . ; Remove-Item plugin.zip
 
 ---
 
-### Option 3: Build from Source
+### Build from Source
 > Requires Node.js and npm
 
 <details>
