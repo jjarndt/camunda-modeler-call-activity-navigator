@@ -7,7 +7,16 @@
     "bpmn",
     "call-activity"
   ],
+  "author": "Jakob Arndt",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jjarndt/camunda-modeler-call-activity-navigator.git"
+  },
+  "bugs": {
+    "url": "https://github.com/jjarndt/camunda-modeler-call-activity-navigator/issues"
+  },
+  "homepage": "https://github.com/jjarndt/camunda-modeler-call-activity-navigator#readme",
   "scripts": {
     "build": "webpack --mode production",
     "dev": "webpack --mode development --watch"

@@ -41,6 +41,10 @@ npm run dev
 - Camunda Modeler 5.x+
 - Camunda 7 (Platform) and Camunda 8 (Cloud/Zeebe)
 
+## Author
+
+Jakob Arndt
+
 ## License
 
 MIT
