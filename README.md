@@ -16,25 +16,61 @@ A Camunda Modeler plugin that adds a context pad entry to Call Activities for qu
 
 ## 📦 Installation
 
-### Option 1: Download Release (Recommended)
+### Quick Install (macOS & Linux)
 
-1. Download the latest release from [GitHub Releases](https://github.com/jjarndt/camunda-modeler-call-activity-navigator/releases)
-2. Extract the plugin to your Camunda Modeler plugins directory:
-   - **Windows**: `%APPDATA%/camunda-modeler/plugins/camunda-modeler-call-activity-navigator`
-   - **macOS**: `~/Library/Application Support/camunda-modeler/plugins/camunda-modeler-call-activity-navigator`
-   - **Linux**: `~/.config/camunda-modeler/plugins/camunda-modeler-call-activity-navigator`
-3. Restart Camunda Modeler
+Run this one-liner in your terminal:
 
-### Option 2: Build from Source
+```bash
+curl -fsSL https://raw.githubusercontent.com/jjarndt/camunda-modeler-call-activity-navigator/master/install.sh | bash
+```
 
-1. Clone this repository
-2. Build the plugin:
-   ```bash
+Then restart Camunda Modeler.
+
+### Manual Installation
+
+#### macOS
+
+```bash
+cd ~/Library/Application\ Support/camunda-modeler/plugins
+git clone https://github.com/jjarndt/camunda-modeler-call-activity-navigator.git
+cd camunda-modeler-call-activity-navigator
+npm install && npm run build
+```
+
+#### Linux
+
+```bash
+cd ~/.config/camunda-modeler/plugins
+git clone https://github.com/jjarndt/camunda-modeler-call-activity-navigator.git
+cd camunda-modeler-call-activity-navigator
+npm install && npm run build
+```
+
+#### Windows
+
+1. Open PowerShell and navigate to plugins directory:
+   ```powershell
+   cd $env:APPDATA\camunda-modeler\plugins
+   ```
+
+2. Clone and build:
+   ```powershell
+   git clone https://github.com/jjarndt/camunda-modeler-call-activity-navigator.git
+   cd camunda-modeler-call-activity-navigator
    npm install
    npm run build
    ```
-3. Copy the entire plugin folder to your Camunda Modeler plugins directory (see above)
-4. Restart Camunda Modeler
+
+### Download Release (Alternative)
+
+1. Download `camunda-modeler-call-activity-navigator.zip` from [latest release](https://github.com/jjarndt/camunda-modeler-call-activity-navigator/releases/latest)
+2. Extract to your plugins directory:
+   - **Windows**: `%APPDATA%\camunda-modeler\plugins\`
+   - **macOS**: `~/Library/Application Support/camunda-modeler/plugins/`
+   - **Linux**: `~/.config/camunda-modeler/plugins/`
+3. Restart Camunda Modeler
+
+> **Note**: After extraction, make sure the folder structure is `plugins/camunda-modeler-call-activity-navigator/index.js` and not `plugins/camunda-modeler-call-activity-navigator/camunda-modeler-call-activity-navigator/index.js`
 
 ## 🚀 Usage
 
@@ -45,12 +81,55 @@ A Camunda Modeler plugin that adds a context pad entry to Call Activities for qu
 
 ## 🛠️ Development
 
+### Setup with Symbolic Link (Recommended)
+
+For easier development, create a symbolic link from the plugin directory to your development folder:
+
+**macOS / Linux:**
+```bash
+ln -s /path/to/your/camunda-modeler-call-activity-navigator ~/Library/Application\ Support/camunda-modeler/plugins/camunda-modeler-call-activity-navigator
+```
+
+**Windows (as Administrator):**
+```powershell
+mklink /d "%APPDATA%\camunda-modeler\plugins\camunda-modeler-call-activity-navigator" "C:\path\to\your\camunda-modeler-call-activity-navigator"
+```
+
+### Build & Watch
+
 ```bash
 npm install
 npm run dev
 ```
 
 The plugin will automatically rebuild when you make changes to the source files.
+
+### Reload Plugin
+
+To test your changes:
+1. Press `F12` to open Developer Tools
+2. Press `Ctrl+R` (Windows/Linux) or `Cmd+R` (macOS) to reload
+
+## 🐛 Troubleshooting
+
+### Plugin not showing up
+
+1. **Check plugin location**: Make sure the plugin is in the correct directory
+2. **Verify folder structure**: The structure should be `plugins/camunda-modeler-call-activity-navigator/index.js`
+3. **Restart Camunda Modeler**: Close and reopen the application completely
+4. **Check console**: Press `F12` and look for errors in the console
+
+### Process not found error
+
+1. **Wait for indexing**: The plugin needs a few seconds to scan your BPMN files
+2. **Check process ID**: Ensure the Call Activity references the correct process ID
+3. **Verify file location**: The referenced process must be in the same project directory or subdirectories
+
+### Build errors
+
+1. **Node.js version**: Make sure you have Node.js 18+ installed
+2. **Clean install**: Try deleting `node_modules` and running `npm install` again
+3. **Check permissions**: Ensure you have write permissions in the plugin directory
 
 ## 🔧 Compatibility
 
