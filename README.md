@@ -6,136 +6,73 @@
 
 A Camunda Modeler plugin that adds a context pad entry to Call Activities for quickly opening the referenced process.
 
-## ✨ Features
+## Features
 
-- **One-Click Navigation**: Click on any Call Activity to open the referenced process definition
-- **Camunda 7 Support**: Works with Platform Call Activities using `calledElement` attribute
-- **Camunda 8 Support**: Works with Zeebe Call Activities using `zeebe:CalledElement` extension
-- **Automatic Indexing**: Scans and indexes all BPMN processes in your workspace
-- **Smart Discovery**: Finds process definitions across your entire project directory
+- One-click navigation to referenced process definitions
+- Support for Camunda 7 (`calledElement`) and Camunda 8 (`zeebe:CalledElement`)
+- Automatic indexing and discovery of BPMN processes in your workspace
 
-## 📦 Installation
+## Installation
 
-### Quick Install (macOS & Linux)
-
-Run this one-liner in your terminal:
-
+**Quick Install (macOS/Linux):**
 ```bash
 curl -fsSL https://raw.githubusercontent.com/jjarndt/camunda-modeler-call-activity-navigator/master/install.sh | bash
 ```
 
-Then restart Camunda Modeler.
+**Download Release:** Get `camunda-modeler-call-activity-navigator.zip` from [releases](https://github.com/jjarndt/camunda-modeler-call-activity-navigator/releases/latest), extract to plugins directory, restart Modeler.
 
-### Manual Installation
-
-#### macOS
-
+**Manual Install:**
 ```bash
-cd ~/Library/Application\ Support/camunda-modeler/plugins
+# Navigate to plugins directory first:
+# Windows:  cd $env:APPDATA\camunda-modeler\plugins
+# macOS:    cd ~/Library/Application\ Support/camunda-modeler/plugins
+# Linux:    cd ~/.config/camunda-modeler/plugins
+
 git clone https://github.com/jjarndt/camunda-modeler-call-activity-navigator.git
 cd camunda-modeler-call-activity-navigator
 npm install && npm run build
 ```
 
-#### Linux
+> Note: Ensure folder structure is `plugins/camunda-modeler-call-activity-navigator/index.js`
 
+## Usage
+
+1. Open a BPMN file with a Call Activity
+2. Click on the Call Activity to reveal the context pad
+3. Click the external link icon
+4. Referenced process opens in a new tab
+
+## Development
+
+**Setup:** Create a symbolic link to your dev folder (optional but recommended):
 ```bash
-cd ~/.config/camunda-modeler/plugins
-git clone https://github.com/jjarndt/camunda-modeler-call-activity-navigator.git
-cd camunda-modeler-call-activity-navigator
-npm install && npm run build
+# macOS/Linux:
+ln -s /path/to/dev/folder ~/Library/Application\ Support/camunda-modeler/plugins/camunda-modeler-call-activity-navigator
+
+# Windows (Admin):
+mklink /d "%APPDATA%\camunda-modeler\plugins\camunda-modeler-call-activity-navigator" "C:\path\to\dev\folder"
 ```
 
-#### Windows
-
-1. Open PowerShell and navigate to plugins directory:
-   ```powershell
-   cd $env:APPDATA\camunda-modeler\plugins
-   ```
-
-2. Clone and build:
-   ```powershell
-   git clone https://github.com/jjarndt/camunda-modeler-call-activity-navigator.git
-   cd camunda-modeler-call-activity-navigator
-   npm install
-   npm run build
-   ```
-
-### Download Release (Alternative)
-
-1. Download `camunda-modeler-call-activity-navigator.zip` from [latest release](https://github.com/jjarndt/camunda-modeler-call-activity-navigator/releases/latest)
-2. Extract to your plugins directory:
-   - **Windows**: `%APPDATA%\camunda-modeler\plugins\`
-   - **macOS**: `~/Library/Application Support/camunda-modeler/plugins/`
-   - **Linux**: `~/.config/camunda-modeler/plugins/`
-3. Restart Camunda Modeler
-
-> **Note**: After extraction, make sure the folder structure is `plugins/camunda-modeler-call-activity-navigator/index.js` and not `plugins/camunda-modeler-call-activity-navigator/camunda-modeler-call-activity-navigator/index.js`
-
-## 🚀 Usage
-
-1. Open a BPMN file containing a Call Activity
-2. Click on the Call Activity element to reveal the context pad
-3. Click the external link icon in the context pad
-4. The referenced process opens automatically in a new tab
-
-## 🛠️ Development
-
-### Setup with Symbolic Link (Recommended)
-
-For easier development, create a symbolic link from the plugin directory to your development folder:
-
-**macOS / Linux:**
-```bash
-ln -s /path/to/your/camunda-modeler-call-activity-navigator ~/Library/Application\ Support/camunda-modeler/plugins/camunda-modeler-call-activity-navigator
-```
-
-**Windows (as Administrator):**
-```powershell
-mklink /d "%APPDATA%\camunda-modeler\plugins\camunda-modeler-call-activity-navigator" "C:\path\to\your\camunda-modeler-call-activity-navigator"
-```
-
-### Build & Watch
-
+**Build & Watch:**
 ```bash
 npm install
-npm run dev
+npm run dev  # Auto-rebuilds on file changes
 ```
 
-The plugin will automatically rebuild when you make changes to the source files.
+**Reload Plugin:** Press `F12` to open DevTools, then `Ctrl+R` (or `Cmd+R` on macOS)
 
-### Reload Plugin
+## Troubleshooting
 
-To test your changes:
-1. Press `F12` to open Developer Tools
-2. Press `Ctrl+R` (Windows/Linux) or `Cmd+R` (macOS) to reload
+**Plugin not showing up:** Check plugin location (`plugins/camunda-modeler-call-activity-navigator/index.js`), restart Modeler, check console (`F12`) for errors.
 
-## 🐛 Troubleshooting
+**Process not found:** Wait a few seconds for indexing, verify process ID matches, ensure referenced process is in project directory.
 
-### Plugin not showing up
+**Build errors:** Requires Node.js 18+. Try `rm -rf node_modules && npm install`. Check write permissions.
 
-1. **Check plugin location**: Make sure the plugin is in the correct directory
-2. **Verify folder structure**: The structure should be `plugins/camunda-modeler-call-activity-navigator/index.js`
-3. **Restart Camunda Modeler**: Close and reopen the application completely
-4. **Check console**: Press `F12` and look for errors in the console
+## Compatibility
 
-### Process not found error
-
-1. **Wait for indexing**: The plugin needs a few seconds to scan your BPMN files
-2. **Check process ID**: Ensure the Call Activity references the correct process ID
-3. **Verify file location**: The referenced process must be in the same project directory or subdirectories
-
-### Build errors
-
-1. **Node.js version**: Make sure you have Node.js 18+ installed
-2. **Clean install**: Try deleting `node_modules` and running `npm install` again
-3. **Check permissions**: Ensure you have write permissions in the plugin directory
-
-## 🔧 Compatibility
-
-- **Camunda Modeler**: 5.x or higher
-- **Camunda Platform**: 7.x (Platform)
-- **Camunda Platform**: 8.x (Cloud/Zeebe)
+- Camunda Modeler 5.x+
+- Camunda Platform 7.x and 8.x
 
 ## Author
 
