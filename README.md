@@ -13,22 +13,57 @@ A [Camunda Modeler](https://camunda.com/download/modeler/) plugin that enables o
 
 ## Installation
 
-| Method | Instructions |
-|--------|--------------|
-| **Quick** (macOS/Linux) | `curl -fsSL https://raw.githubusercontent.com/jjarndt/camunda-modeler-call-activity-navigator/master/install.sh \| bash` |
-| **Download** | Extract [latest release](https://github.com/jjarndt/camunda-modeler-call-activity-navigator/releases/latest) to plugins directory |
-| **Manual** | Clone repo to plugins directory, run `npm install && npm run build` |
+**Option 1: Quick Install**
 
-<details>
-<summary><b>Plugin directory paths</b></summary>
+<table>
+<tr><td><b>macOS / Linux</b></td></tr>
+<tr><td>
 
-| OS | Path |
-|----|------|
-| Windows | `%APPDATA%\camunda-modeler\plugins\` |
-| macOS | `~/Library/Application Support/camunda-modeler/plugins/` |
-| Linux | `~/.config/camunda-modeler/plugins/` |
+```bash
+curl -fsSL https://raw.githubusercontent.com/jjarndt/camunda-modeler-call-activity-navigator/master/install.sh | bash
+```
 
-</details>
+</td></tr>
+</table>
+
+**Option 2: [Download Release](https://github.com/jjarndt/camunda-modeler-call-activity-navigator/releases/latest)**
+
+Extract to plugins directory and restart Modeler.
+
+**Option 3: Manual**
+
+<table>
+<tr><td><b>macOS</b></td></tr>
+<tr><td>
+
+```bash
+cd ~/Library/Application\ Support/camunda-modeler/plugins
+git clone https://github.com/jjarndt/camunda-modeler-call-activity-navigator.git
+cd camunda-modeler-call-activity-navigator && npm i && npm run build
+```
+
+</td></tr>
+<tr><td><b>Linux</b></td></tr>
+<tr><td>
+
+```bash
+cd ~/.config/camunda-modeler/plugins
+git clone https://github.com/jjarndt/camunda-modeler-call-activity-navigator.git
+cd camunda-modeler-call-activity-navigator && npm i && npm run build
+```
+
+</td></tr>
+<tr><td><b>Windows</b></td></tr>
+<tr><td>
+
+```powershell
+cd $env:APPDATA\camunda-modeler\plugins
+git clone https://github.com/jjarndt/camunda-modeler-call-activity-navigator.git
+cd camunda-modeler-call-activity-navigator; npm i; npm run build
+```
+
+</td></tr>
+</table>
 
 ## License
 
