@@ -23,8 +23,8 @@ A [Camunda Modeler](https://camunda.com/download/modeler/) plugin that enables o
 
 ```bash
 cd ~/Library/Application\ Support/camunda-modeler/plugins
-curl -LO https://github.com/jjarndt/camunda-modeler-call-activity-navigator/releases/latest/download/camunda-modeler-call-activity-navigator-1.0.0.zip
-unzip camunda-modeler-call-activity-navigator-1.0.0.zip && rm camunda-modeler-call-activity-navigator-1.0.0.zip
+curl -LO https://github.com/jjarndt/camunda-modeler-call-activity-navigator/releases/latest/download/camunda-modeler-call-activity-navigator-1.1.0.zip
+unzip camunda-modeler-call-activity-navigator-1.1.0.zip && rm camunda-modeler-call-activity-navigator-1.1.0.zip
 ```
 </details>
 
@@ -33,8 +33,8 @@ unzip camunda-modeler-call-activity-navigator-1.0.0.zip && rm camunda-modeler-ca
 
 ```bash
 cd ~/.config/camunda-modeler/plugins
-curl -LO https://github.com/jjarndt/camunda-modeler-call-activity-navigator/releases/latest/download/camunda-modeler-call-activity-navigator-1.0.0.zip
-unzip camunda-modeler-call-activity-navigator-1.0.0.zip && rm camunda-modeler-call-activity-navigator-1.0.0.zip
+curl -LO https://github.com/jjarndt/camunda-modeler-call-activity-navigator/releases/latest/download/camunda-modeler-call-activity-navigator-1.1.0.zip
+unzip camunda-modeler-call-activity-navigator-1.1.0.zip && rm camunda-modeler-call-activity-navigator-1.1.0.zip
 ```
 </details>
 
@@ -43,7 +43,7 @@ unzip camunda-modeler-call-activity-navigator-1.0.0.zip && rm camunda-modeler-ca
 
 ```powershell
 cd $env:APPDATA\camunda-modeler\plugins
-Invoke-WebRequest -Uri "https://github.com/jjarndt/camunda-modeler-call-activity-navigator/releases/latest/download/camunda-modeler-call-activity-navigator-1.0.0.zip" -OutFile "plugin.zip"
+Invoke-WebRequest -Uri "https://github.com/jjarndt/camunda-modeler-call-activity-navigator/releases/latest/download/camunda-modeler-call-activity-navigator-1.1.0.zip" -OutFile "plugin.zip"
 Expand-Archive plugin.zip -DestinationPath . ; Remove-Item plugin.zip
 ```
 </details>
