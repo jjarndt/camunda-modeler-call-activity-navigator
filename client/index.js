@@ -138,6 +138,29 @@ class CallActivityNavigatorPlugin extends PureComponent {
   }
 
   async _handleOpenProcess(processId) {
+    console.log('[CallActivityNavigator] _handleOpenProcess called with processId:', processId);
+    console.log('[CallActivityNavigator] Active tab:', this._activeTab?.file?.path);
+
+    // Prüfe zuerst, ob der Prozess in der aktuell geöffneten Datei eingebettet ist
+    if (this._activeTab?.file?.path) {
+      const embeddedProcessIds = await this._getEmbeddedProcessIds(this._activeTab.file.path);
+      console.log('[CallActivityNavigator] Checking if processId', processId, 'is in', embeddedProcessIds);
+
+      if (embeddedProcessIds.includes(processId)) {
+        console.log('[CallActivityNavigator] Process is embedded in current file:', processId);
+        this._displayNotification({
+          type: 'info',
+          title: 'Eingebetteter Prozess',
+          content: `Der Prozess "${processId}" befindet sich bereits in dieser Datei.`
+        });
+        return;
+      } else {
+        console.log('[CallActivityNavigator] Process NOT embedded, searching in other files');
+      }
+    } else {
+      console.log('[CallActivityNavigator] No active tab or file path available');
+    }
+
     // Falls Indexing noch nicht gelaufen ist, jetzt starten
     if (this._indexingDeferred && this._pendingFiles.length > 0) {
       this._indexingDeferred = false;
@@ -164,6 +187,29 @@ class CallActivityNavigatorPlugin extends PureComponent {
       title: 'Process not found',
       content: `Could not find process "${processId}". Wait for scan to complete or check if file exists.`
     });
+  }
+
+  async _getEmbeddedProcessIds(filePath) {
+    try {
+      const fileSystem = this._getGlobal('fileSystem');
+      const file = await fileSystem.readFile(filePath);
+      const content = file.contents;
+
+      // Finde alle Process-IDs in der Datei (nicht nur die erste)
+      const processIds = [];
+      const regex = /<bpmn2?:process[^>]+id="([^"]+)"/g;
+      let match;
+
+      while ((match = regex.exec(content)) !== null) {
+        processIds.push(match[1]);
+      }
+
+      console.log('[CallActivityNavigator] Embedded processes in', filePath, ':', processIds);
+      return processIds;
+    } catch (error) {
+      console.error('[CallActivityNavigator] Error reading current file:', error);
+      return [];
+    }
   }
 
   render() {

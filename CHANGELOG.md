@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2026-01-23
+
+### Added
+- Detection of embedded processes (multiple processes in the same BPMN file)
+- Informative notification when a Call Activity references an embedded process in the same file
+- Debug logging for embedded process detection
+
+### Changed
+- Plugin no longer attempts to open non-existent files when Call Activity references an embedded process
+- Improved user experience with clear feedback for embedded process scenarios
+
 ## [1.0.0] - 2024-01-22
 
 ### Added
@@ -23,4 +34,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Automatically indexes all BPMN files in project directories
 - Supports both platform-specific implementations (Camunda 7 and 8)
 
+[1.1.0]: https://github.com/jjarndt/camunda-modeler-call-activity-navigator/releases/tag/v1.1.0
 [1.0.0]: https://github.com/jjarndt/camunda-modeler-call-activity-navigator/releases/tag/v1.0.0

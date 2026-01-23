@@ -9,6 +9,7 @@ A [Camunda Modeler](https://camunda.com/download/modeler/) plugin that enables o
 - Navigate directly from any Call Activity to its target process
 - Automatic indexing of all BPMN files in your workspace
 - Supports Camunda 7 (`calledElement`) and Camunda 8 (`zeebe:CalledElement`)
+- Detects embedded processes (multiple processes in the same BPMN file) and shows an info message instead of attempting to open a non-existent file
 
 ---
 
