@@ -13,34 +13,25 @@ class CallActivityNavigatorPlugin extends PureComponent {
     this._displayNotification = displayNotification;
     this._getGlobal = _getGlobal;
     this._activeTab = null;
-    this._processIndex = new Map();
-    this._indexedRoots = new Set();
-    this._pendingFiles = [];
-    this._isScanning = false;
-    this._indexingDeferred = true;
-    this._perfStartup = Date.now();
+    this._processIndex = new Map(); // processId -> Array<{path: string}>
+    this._knownFiles = new Set(); // Dateien die wir vom Modeler kennen
 
-    console.log('[CallActivityNavigator] Plugin initialized at', new Date(this._perfStartup).toISOString());
-
+    // Sammle Dateien die der Modeler uns mitteilt (ohne add-root aufzurufen)
     const backend = _getGlobal('backend');
-    this._backend = backend;
-
     backend.on('file-context:changed', (_, items) => {
-      console.log('[CallActivityNavigator] file-context:changed, items:', items?.length);
-      this._processFileContextItems(items || []);
+      if (!items) return;
+      for (const item of items) {
+        if (item.file?.path?.endsWith('.bpmn')) {
+          this._knownFiles.add(item.file.path);
+        }
+      }
     });
 
     subscribe('app.activeTabChanged', ({ activeTab }) => {
       this._activeTab = activeTab;
-
-      if (activeTab?.file?.path) {
-        this._ensureRootIndexed(activeTab.file.path);
-      }
     });
 
-    subscribe('bpmn.modeler.configure', ({ middlewares, tab }) => {
-      console.log('[CallActivityNavigator] bpmn.modeler.configure for:', tab?.type);
-
+    subscribe('bpmn.modeler.configure', ({ middlewares }) => {
       middlewares.push(config => {
         return {
           ...config,
@@ -53,163 +44,213 @@ class CallActivityNavigatorPlugin extends PureComponent {
     });
 
     subscribe('bpmn.modeler.created', ({ modeler }) => {
-      console.log('[CallActivityNavigator] bpmn.modeler.created');
       const eventBus = modeler.get('eventBus');
 
       eventBus.on('callActivity.openProcess', (event) => {
-        console.log('[CallActivityNavigator] openProcess event:', event.processId);
         this._handleOpenProcess(event.processId);
       });
     });
   }
 
-  _ensureRootIndexed(filePath) {
-    const pathParts = filePath.split(/[/\\]/);
-
-    let rootPath = null;
-    const bpmnIndex = pathParts.findIndex(p => p === 'bpmn');
-    if (bpmnIndex > 0) {
-      rootPath = pathParts.slice(0, bpmnIndex + 1).join('/');
-    } else {
-      rootPath = pathParts.slice(0, -1).join('/');
-    }
-
-    if (rootPath && !this._indexedRoots.has(rootPath)) {
-      console.log('[CallActivityNavigator] Adding root for indexing:', rootPath);
-      this._indexedRoots.add(rootPath);
-      this._backend.send('file-context:add-root', { filePath: rootPath });
-    }
-  }
-
-  async _processFileContextItems(items) {
-    const bpmnFiles = items.filter(item =>
-      item.file?.path?.endsWith('.bpmn')
-    );
-
-    for (const item of bpmnFiles) {
-      if (!this._processIndex.has(item.file.path)) {
-        this._pendingFiles.push(item.file.path);
-      }
-    }
-
-    // Kein automatischer Scan mehr - nur Dateien sammeln (Lazy Indexing)
-  }
-
-  async _scanPendingFiles() {
-    if (this._isScanning || this._pendingFiles.length === 0) return;
-
-    this._isScanning = true;
-    const fileSystem = this._getGlobal('fileSystem');
-    const scanStart = Date.now();
-
-    // Alle pending files auf einmal holen
-    const filesToScan = [...this._pendingFiles];
-    this._pendingFiles = [];
-
-    const BATCH_SIZE = 50; // Verhindert Memory-Spikes
-
-    for (let i = 0; i < filesToScan.length; i += BATCH_SIZE) {
-      const batch = filesToScan.slice(i, i + BATCH_SIZE);
-
-      // Parallele Reads mit Promise.allSettled
-      const results = await Promise.allSettled(
-        batch.map(async (filePath) => {
-          const file = await fileSystem.readFile(filePath);
-          const content = file.contents;
-          const processMatch = content.match(/<bpmn2?:process[^>]+id="([^"]+)"/);
-          return { filePath, processMatch };
-        })
-      );
-
-      // Ergebnisse verarbeiten
-      results.forEach(result => {
-        if (result.status === 'fulfilled' && result.value.processMatch) {
-          const { filePath, processMatch } = result.value;
-          const processId = processMatch[1];
-          this._processIndex.set(processId, { path: filePath });
-          console.log('[CallActivityNavigator] Found process:', processId, 'in', filePath);
-        }
-      });
-    }
-
-    this._isScanning = false;
-    const scanDuration = Date.now() - scanStart;
-    console.log(`[CallActivityNavigator] Scan completed in ${scanDuration}ms, ${this._processIndex.size} processes, ${filesToScan.length} files`);
-  }
-
   async _handleOpenProcess(processId) {
-    console.log('[CallActivityNavigator] _handleOpenProcess called with processId:', processId);
-    console.log('[CallActivityNavigator] Active tab:', this._activeTab?.file?.path);
+    const currentFilePath = this._activeTab?.file?.path;
 
-    // Prüfe zuerst, ob der Prozess in der aktuell geöffneten Datei eingebettet ist
-    if (this._activeTab?.file?.path) {
-      const embeddedProcessIds = await this._getEmbeddedProcessIds(this._activeTab.file.path);
-      console.log('[CallActivityNavigator] Checking if processId', processId, 'is in', embeddedProcessIds);
-
-      if (embeddedProcessIds.includes(processId)) {
-        console.log('[CallActivityNavigator] Process is embedded in current file:', processId);
-        this._displayNotification({
-          type: 'info',
-          title: 'Eingebetteter Prozess',
-          content: `Der Prozess "${processId}" befindet sich bereits in dieser Datei.`
-        });
-        return;
-      } else {
-        console.log('[CallActivityNavigator] Process NOT embedded, searching in other files');
-      }
-    } else {
-      console.log('[CallActivityNavigator] No active tab or file path available');
+    if (!currentFilePath) {
+      this._displayNotification({
+        type: 'warning',
+        title: 'Keine Datei geoeffnet',
+        content: 'Bitte speichere die Datei zuerst.'
+      });
+      return;
     }
 
-    // Falls Indexing noch nicht gelaufen ist, jetzt starten
-    if (this._indexingDeferred && this._pendingFiles.length > 0) {
-      this._indexingDeferred = false;
-
+    // 1. Prüfe ob der Prozess in der aktuellen Datei eingebettet ist
+    const embeddedProcessIds = await this._getProcessIdsFromFile(currentFilePath);
+    if (embeddedProcessIds.includes(processId)) {
       this._displayNotification({
         type: 'info',
-        title: 'Indexing processes',
-        content: `Scanning ${this._pendingFiles.length} BPMN files...`
+        title: 'Eingebetteter Prozess',
+        content: `Der Prozess "${processId}" befindet sich bereits in dieser Datei.`
       });
-
-      await this._scanPendingFiles();
+      return;
     }
 
-    const processInfo = this._processIndex.get(processId);
+    // 2. Suche in bekannten Dateien (vom Modeler)
+    const foundInKnown = await this._searchInKnownFiles(processId, currentFilePath);
+    if (foundInKnown) {
+      this._triggerAction('open-diagram', { path: foundInKnown });
+      return;
+    }
 
-    if (processInfo) {
-      console.log('[CallActivityNavigator] Opening:', processInfo.path);
-      this._triggerAction('open-diagram', { path: processInfo.path });
+    // 3. Versuche relative Pfade basierend auf der Process-ID
+    const foundRelative = await this._tryRelativePaths(processId, currentFilePath);
+    if (foundRelative) {
+      this._triggerAction('open-diagram', { path: foundRelative });
       return;
     }
 
     this._displayNotification({
       type: 'warning',
-      title: 'Process not found',
-      content: `Could not find process "${processId}". Wait for scan to complete or check if file exists.`
+      title: 'Prozess nicht gefunden',
+      content: `Konnte "${processId}" nicht finden. Oeffne die Datei manuell.`
     });
   }
 
-  async _getEmbeddedProcessIds(filePath) {
+  async _searchInKnownFiles(processId, currentFilePath) {
+    // Scanne bekannte Dateien und baue Index on-demand
+    for (const filePath of this._knownFiles) {
+      if (filePath === currentFilePath) continue;
+
+      // Prüfe ob wir diese Datei schon indexiert haben
+      if (!this._isFileIndexed(filePath)) {
+        await this._indexFile(filePath);
+      }
+    }
+
+    // Suche im Index
+    const locations = this._processIndex.get(processId);
+    if (locations && locations.length > 0) {
+      return this._findBestMatch(locations, currentFilePath).path;
+    }
+
+    return null;
+  }
+
+  _isFileIndexed(filePath) {
+    for (const locations of this._processIndex.values()) {
+      if (locations.some(loc => loc.path === filePath)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  async _indexFile(filePath) {
+    try {
+      const processIds = await this._getProcessIdsFromFile(filePath);
+      for (const pid of processIds) {
+        const existing = this._processIndex.get(pid) || [];
+        if (!existing.some(entry => entry.path === filePath)) {
+          existing.push({ path: filePath });
+          this._processIndex.set(pid, existing);
+        }
+      }
+    } catch (error) {
+      // Datei konnte nicht gelesen werden - ignorieren
+    }
+  }
+
+  async _tryRelativePaths(processId, currentFilePath) {
+    const currentDir = currentFilePath.split(/[/\\]/).slice(0, -1).join('/');
+    const fileSystem = this._getGlobal('fileSystem');
+
+    // Mögliche Dateinamen basierend auf der Process-ID
+    const possibleNames = [
+      `${processId}.bpmn`,
+      `${processId.replace(/_/g, '-')}.bpmn`,
+      `${processId.replace(/-/g, '_')}.bpmn`
+    ];
+
+    // Mögliche Verzeichnisse relativ zur aktuellen Datei
+    const possibleDirs = [
+      currentDir,                    // Gleiches Verzeichnis
+      `${currentDir}/..`,            // Parent
+      `${currentDir}/../..`,         // Grandparent
+    ];
+
+    for (const dir of possibleDirs) {
+      for (const name of possibleNames) {
+        const candidatePath = this._normalizePath(`${dir}/${name}`);
+
+        try {
+          const file = await fileSystem.readFile(candidatePath);
+          if (file && file.contents) {
+            // Verifiziere dass die Datei den gesuchten Prozess enthält
+            const processIds = this._extractProcessIds(file.contents);
+            if (processIds.includes(processId)) {
+              // Zur bekannten Liste hinzufügen für zukünftige Suchen
+              this._knownFiles.add(candidatePath);
+              await this._indexFile(candidatePath);
+              return candidatePath;
+            }
+          }
+        } catch (error) {
+          // Datei existiert nicht oder kann nicht gelesen werden - weiter
+        }
+      }
+    }
+
+    return null;
+  }
+
+  _normalizePath(path) {
+    // Vereinfache Pfade wie /a/b/../c zu /a/c
+    const parts = path.split('/');
+    const normalized = [];
+
+    for (const part of parts) {
+      if (part === '..') {
+        normalized.pop();
+      } else if (part !== '.' && part !== '') {
+        normalized.push(part);
+      }
+    }
+
+    return '/' + normalized.join('/');
+  }
+
+  async _getProcessIdsFromFile(filePath) {
     try {
       const fileSystem = this._getGlobal('fileSystem');
       const file = await fileSystem.readFile(filePath);
-      const content = file.contents;
-
-      // Finde alle Process-IDs in der Datei (nicht nur die erste)
-      const processIds = [];
-      const regex = /<bpmn2?:process[^>]+id="([^"]+)"/g;
-      let match;
-
-      while ((match = regex.exec(content)) !== null) {
-        processIds.push(match[1]);
-      }
-
-      console.log('[CallActivityNavigator] Embedded processes in', filePath, ':', processIds);
-      return processIds;
+      return this._extractProcessIds(file.contents);
     } catch (error) {
-      console.error('[CallActivityNavigator] Error reading current file:', error);
       return [];
     }
+  }
+
+  _extractProcessIds(content) {
+    const processIds = [];
+    const regex = /<bpmn2?:process[^>]+id="([^"]+)"/g;
+    let match;
+
+    while ((match = regex.exec(content)) !== null) {
+      processIds.push(match[1]);
+    }
+
+    return processIds;
+  }
+
+  _findBestMatch(locations, currentFilePath) {
+    if (locations.length === 1 || !currentFilePath) {
+      return locations[0];
+    }
+
+    const currentDir = currentFilePath.split(/[/\\]/).slice(0, -1).join('/');
+    let bestMatch = locations[0];
+    let bestScore = 0;
+
+    for (const location of locations) {
+      const locationDir = location.path.split(/[/\\]/).slice(0, -1).join('/');
+      const currentParts = currentDir.split('/');
+      const locationParts = locationDir.split('/');
+      let commonParts = 0;
+
+      for (let i = 0; i < Math.min(currentParts.length, locationParts.length); i++) {
+        if (currentParts[i] === locationParts[i]) {
+          commonParts++;
+        } else {
+          break;
+        }
+      }
+
+      if (commonParts > bestScore) {
+        bestScore = commonParts;
+        bestMatch = location;
+      }
+    }
+
+    return bestMatch;
   }
 
   render() {
