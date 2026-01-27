@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2026-01-27
+
+### Added
+- Project-wide BPMN file discovery using `file-context:add-root` API
+- Automatic indexing of all BPMN files in the project directory
+- Support for finding Call Activities where filename differs from Process ID
+
+### Fixed
+- Fixed crash when target process file was in a distant directory
+- Plugin now works reliably regardless of directory depth
+
+### Changed
+- Improved search strategy: Known files -> Relative paths -> Project scan
+- Better debug logging for troubleshooting
+
 ## [1.1.0] - 2026-01-23
 
 ### Added
@@ -34,5 +49,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Automatically indexes all BPMN files in project directories
 - Supports both platform-specific implementations (Camunda 7 and 8)
 
+[1.2.0]: https://github.com/jjarndt/camunda-modeler-call-activity-navigator/releases/tag/v1.2.0
 [1.1.0]: https://github.com/jjarndt/camunda-modeler-call-activity-navigator/releases/tag/v1.1.0
 [1.0.0]: https://github.com/jjarndt/camunda-modeler-call-activity-navigator/releases/tag/v1.0.0
