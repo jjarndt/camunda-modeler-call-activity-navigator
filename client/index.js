@@ -4,6 +4,10 @@ import React, { PureComponent } from 'react';
 import { registerClientExtension } from 'camunda-modeler-plugin-helpers';
 
 import CallActivityContextPadModule from './bpmn-extension';
+import { getPathSeparator, normalizePath } from './path-utils.mjs';
+import { ProcessIndex } from './process-index.mjs';
+import { NavigatorSearch } from './navigator-search.mjs';
+import { extractProcessIds } from './bpmn-parser.mjs';
 
 console.log('[CallActivityNavigator] CLIENT MODULE LOADED, registering...');
 
@@ -18,7 +22,11 @@ class CallActivityNavigatorPlugin extends PureComponent {
     this._displayNotification = displayNotification;
     this._getGlobal = _getGlobal;
     this._activeTab = null;
-    this._processIndex = new Map(); // processId -> Array<{path: string}>
+    this._index = new ProcessIndex();
+    this._search = new NavigatorSearch({
+      fileSystem: _getGlobal('fileSystem'),
+      index: this._index
+    });
     this._knownFiles = new Set(); // Files known from the modeler
 
     // Collect files reported by the modeler
@@ -29,9 +37,25 @@ class CallActivityNavigatorPlugin extends PureComponent {
       console.log('[CallActivityNavigator] file-context:changed event, items:', items?.length || 0);
       if (!items) return;
       for (const item of items) {
-        if (item.file?.path?.endsWith('.bpmn')) {
-          this._knownFiles.add(item.file.path);
+        const filePath = item.file?.path;
+        if (!filePath || !filePath.endsWith('.bpmn')) continue;
+
+        const isRemoved = item.type === 'removed' ||
+          item.type === 'deleted' ||
+          item.action === 'removed' ||
+          item.action === 'deleted' ||
+          item.removed === true ||
+          item.deleted === true;
+
+        if (isRemoved) {
+          this._knownFiles.delete(filePath);
+          this._search.invalidateFile(filePath);
+          continue;
         }
+
+        // Mark as known and dirty so we re-index on next search
+        this._knownFiles.add(filePath);
+        this._search.invalidateFile(filePath);
       }
       console.log('[CallActivityNavigator] knownFiles now:', this._knownFiles.size);
     });
@@ -81,7 +105,7 @@ class CallActivityNavigatorPlugin extends PureComponent {
 
     // 1. Check if the process is embedded in the current file
     console.log('[CallActivityNavigator] Stage 1: Checking embedded processes...');
-    const embeddedProcessIds = await this._getProcessIdsFromFile(currentFilePath);
+    const embeddedProcessIds = await this._search.getProcessIdsFromFile(currentFilePath);
     console.log('[CallActivityNavigator] Stage 1: embeddedProcessIds:', embeddedProcessIds);
     if (embeddedProcessIds.includes(processId)) {
       this._displayNotification({
@@ -135,47 +159,7 @@ class CallActivityNavigatorPlugin extends PureComponent {
   }
 
   async _searchInKnownFiles(processId, currentFilePath) {
-    // Scan known files and build index on-demand
-    for (const filePath of this._knownFiles) {
-      if (filePath === currentFilePath) continue;
-
-      // Check if we have already indexed this file
-      if (!this._isFileIndexed(filePath)) {
-        await this._indexFile(filePath);
-      }
-    }
-
-    // Suche im Index
-    const locations = this._processIndex.get(processId);
-    if (locations && locations.length > 0) {
-      return this._findBestMatch(locations, currentFilePath).path;
-    }
-
-    return null;
-  }
-
-  _isFileIndexed(filePath) {
-    for (const locations of this._processIndex.values()) {
-      if (locations.some(loc => loc.path === filePath)) {
-        return true;
-      }
-    }
-    return false;
-  }
-
-  async _indexFile(filePath) {
-    try {
-      const processIds = await this._getProcessIdsFromFile(filePath);
-      for (const pid of processIds) {
-        const existing = this._processIndex.get(pid) || [];
-        if (!existing.some(entry => entry.path === filePath)) {
-          existing.push({ path: filePath });
-          this._processIndex.set(pid, existing);
-        }
-      }
-    } catch (error) {
-      // File could not be read - ignore
-    }
+    return this._search.searchInKnownFiles(processId, currentFilePath, this._knownFiles);
   }
 
   /**
@@ -184,7 +168,7 @@ class CallActivityNavigatorPlugin extends PureComponent {
    */
   async _searchInSiblingDirs(processId, currentFilePath) {
     // Find the "processes" or "bpmn" root directory
-    const processesMatch = currentFilePath.match(/(.+\/(?:processes|bpmn))\//);
+    const processesMatch = currentFilePath.match(/(.+[\\/](?:processes|bpmn))[\\/]/);
     if (!processesMatch) {
       console.log('[CallActivityNavigator] Stage 4: No processes/bpmn directory found in path');
       return null;
@@ -220,15 +204,15 @@ class CallActivityNavigatorPlugin extends PureComponent {
     for (const filePath of this._knownFiles) {
       if (filePath === currentFilePath) continue;
 
-      if (!this._isFileIndexed(filePath)) {
+      if (!this._search.isFileIndexed(filePath)) {
         console.log('[CallActivityNavigator] Stage 4: indexing:', filePath);
-        await this._indexFile(filePath);
+        await this._search.indexFile(filePath);
 
         // Check if we found it
-        const locations = this._processIndex.get(processId);
+        const locations = this._search.getLocations(processId);
         if (locations && locations.length > 0) {
           console.log('[CallActivityNavigator] Stage 4: FOUND!', locations);
-          return this._findBestMatch(locations, currentFilePath).path;
+          return this._search.findBestMatch(locations, currentFilePath).path;
         }
       }
     }
@@ -238,7 +222,8 @@ class CallActivityNavigatorPlugin extends PureComponent {
   }
 
   async _tryRelativePaths(processId, currentFilePath) {
-    const currentDir = currentFilePath.split(/[/\\]/).slice(0, -1).join('/');
+    const pathSep = getPathSeparator(currentFilePath);
+    const currentDir = currentFilePath.split(/[/\\]/).slice(0, -1).join(pathSep);
     console.log('[CallActivityNavigator] Stage 3: currentDir:', currentDir);
     const fileSystem = this._getGlobal('fileSystem');
 
@@ -252,18 +237,18 @@ class CallActivityNavigatorPlugin extends PureComponent {
 
     // Possible directories relative to the current file - go up to 5 levels
     const possibleDirs = [
-      currentDir,                              // Same directory
-      `${currentDir}/..`,                      // Parent
-      `${currentDir}/../..`,                   // Grandparent
-      `${currentDir}/../../..`,                // 3 levels up
-      `${currentDir}/../../../..`,             // 4 levels up
-      `${currentDir}/../../../../..`,          // 5 levels up
+      currentDir,                                              // Same directory
+      `${currentDir}${pathSep}..`,                             // Parent
+      `${currentDir}${pathSep}..${pathSep}..`,                 // Grandparent
+      `${currentDir}${pathSep}..${pathSep}..${pathSep}..`,     // 3 levels up
+      `${currentDir}${pathSep}..${pathSep}..${pathSep}..${pathSep}..`, // 4 levels up
+      `${currentDir}${pathSep}..${pathSep}..${pathSep}..${pathSep}..${pathSep}..`, // 5 levels up
     ];
     console.log('[CallActivityNavigator] Stage 3: possibleDirs:', possibleDirs);
 
     for (const dir of possibleDirs) {
       for (const name of possibleNames) {
-        const candidatePath = this._normalizePath(`${dir}/${name}`);
+        const candidatePath = normalizePath(`${dir}${pathSep}${name}`, pathSep);
         console.log('[CallActivityNavigator] Stage 3: trying path:', candidatePath);
 
         try {
@@ -271,13 +256,13 @@ class CallActivityNavigatorPlugin extends PureComponent {
           console.log('[CallActivityNavigator] Stage 3: file read result:', file ? 'OK' : 'null', 'contents:', file?.contents?.length || 0, 'bytes');
           if (file && file.contents) {
             // Verify that the file contains the searched process
-            const processIds = this._extractProcessIds(file.contents);
+            const processIds = extractProcessIds(file.contents);
             console.log('[CallActivityNavigator] Stage 3: processIds in file:', processIds);
             if (processIds.includes(processId)) {
               console.log('[CallActivityNavigator] Stage 3: FOUND!', candidatePath);
               // Add to known list for future searches
               this._knownFiles.add(candidatePath);
-              await this._indexFile(candidatePath);
+              await this._search.indexFile(candidatePath);
               return candidatePath;
             }
           }
@@ -289,76 +274,6 @@ class CallActivityNavigatorPlugin extends PureComponent {
     }
 
     return null;
-  }
-
-  _normalizePath(path) {
-    // Simplify paths like /a/b/../c to /a/c
-    const parts = path.split('/');
-    const normalized = [];
-
-    for (const part of parts) {
-      if (part === '..') {
-        normalized.pop();
-      } else if (part !== '.' && part !== '') {
-        normalized.push(part);
-      }
-    }
-
-    return '/' + normalized.join('/');
-  }
-
-  async _getProcessIdsFromFile(filePath) {
-    try {
-      const fileSystem = this._getGlobal('fileSystem');
-      const file = await fileSystem.readFile(filePath);
-      return this._extractProcessIds(file.contents);
-    } catch (error) {
-      return [];
-    }
-  }
-
-  _extractProcessIds(content) {
-    const processIds = [];
-    const regex = /<bpmn2?:process[^>]+id="([^"]+)"/g;
-    let match;
-
-    while ((match = regex.exec(content)) !== null) {
-      processIds.push(match[1]);
-    }
-
-    return processIds;
-  }
-
-  _findBestMatch(locations, currentFilePath) {
-    if (locations.length === 1 || !currentFilePath) {
-      return locations[0];
-    }
-
-    const currentDir = currentFilePath.split(/[/\\]/).slice(0, -1).join('/');
-    let bestMatch = locations[0];
-    let bestScore = 0;
-
-    for (const location of locations) {
-      const locationDir = location.path.split(/[/\\]/).slice(0, -1).join('/');
-      const currentParts = currentDir.split('/');
-      const locationParts = locationDir.split('/');
-      let commonParts = 0;
-
-      for (let i = 0; i < Math.min(currentParts.length, locationParts.length); i++) {
-        if (currentParts[i] === locationParts[i]) {
-          commonParts++;
-        } else {
-          break;
-        }
-      }
-
-      if (commonParts > bestScore) {
-        bestScore = commonParts;
-        bestMatch = location;
-      }
-    }
-
-    return bestMatch;
   }
 
   render() {
