@@ -15,7 +15,28 @@ A [Camunda Modeler](https://camunda.com/download/modeler/) plugin that enables o
 
 ---
 
+## What's New (v1.2.1)
+
+- **Fixed:** Prevent repeated re-indexing of BPMN files without processes
+- **Fixed:** Invalidate stale index entries when files change or are removed
+- **Fixed:** Windows path normalization for relative search and root detection
+- **Changed:** Refactored indexing and search logic into testable modules
+
+See [CHANGELOG.md](CHANGELOG.md) for full history.
+
+---
+
 ## Installation
+
+### Quick Install (macOS / Linux)
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/jjarndt/camunda-modeler-call-activity-navigator/master/install.sh | bash
+```
+
+Automatically detects the OS, downloads the latest version, and installs the plugin to the correct directory.
+
+---
 
 ### Download Release
 > No npm required — just extract and restart Modeler
