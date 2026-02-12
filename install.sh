@@ -6,49 +6,50 @@
 set -e
 
 PLUGIN_NAME="camunda-modeler-call-activity-navigator"
-LATEST_RELEASE_URL="https://api.github.com/repos/jjarndt/camunda-modeler-call-activity-navigator/releases/latest"
+REPO="jjarndt/camunda-modeler-call-activity-navigator"
 
-echo "🚀 Installing $PLUGIN_NAME..."
+echo "Installing $PLUGIN_NAME..."
 
 # Determine OS and set plugin directory
 if [[ "$OSTYPE" == "darwin"* ]]; then
-    PLUGIN_DIR="$HOME/Library/Application Support/camunda-modeler/plugins/$PLUGIN_NAME"
+    PLUGIN_DIR="$HOME/Library/Application Support/camunda-modeler/plugins"
 elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
-    PLUGIN_DIR="$HOME/.config/camunda-modeler/plugins/$PLUGIN_NAME"
+    PLUGIN_DIR="$HOME/.config/camunda-modeler/plugins"
 else
-    echo "❌ Unsupported operating system: $OSTYPE"
-    echo "Please install manually following the instructions at:"
-    echo "https://github.com/jjarndt/camunda-modeler-call-activity-navigator#installation"
+    echo "Error: Unsupported operating system: $OSTYPE"
+    echo "Please install manually: https://github.com/$REPO#installation"
     exit 1
 fi
 
 # Create plugins directory if it doesn't exist
-mkdir -p "$(dirname "$PLUGIN_DIR")"
+mkdir -p "$PLUGIN_DIR"
 
-# Clone or update repository
-if [ -d "$PLUGIN_DIR" ]; then
-    echo "📦 Plugin directory exists. Updating..."
-    cd "$PLUGIN_DIR"
-    git pull
-else
-    echo "📦 Cloning plugin repository..."
-    git clone https://github.com/jjarndt/camunda-modeler-call-activity-navigator.git "$PLUGIN_DIR"
-    cd "$PLUGIN_DIR"
+# Remove previous installation if it exists
+if [ -d "$PLUGIN_DIR/$PLUGIN_NAME" ]; then
+    echo "Removing previous installation..."
+    rm -rf "$PLUGIN_DIR/$PLUGIN_NAME"
 fi
 
-# Install dependencies and build
-if command -v npm &> /dev/null; then
-    echo "📦 Installing dependencies..."
-    npm install --silent
-    echo "🔨 Building plugin..."
-    npm run build
-else
-    echo "⚠️  npm not found. Skipping build step."
-    echo "Please install Node.js and run 'npm install && npm run build' manually."
+# Get latest release download URL from GitHub API
+echo "Fetching latest release..."
+DOWNLOAD_URL=$(curl -fsSL "https://api.github.com/repos/$REPO/releases/latest" | grep '"browser_download_url"' | head -1 | cut -d'"' -f4)
+
+if [ -z "$DOWNLOAD_URL" ]; then
+    echo "Error: Could not determine latest release URL."
+    exit 1
 fi
 
+VERSION=$(echo "$DOWNLOAD_URL" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')
+echo "Downloading v$VERSION..."
+
+# Download and extract to plugins directory
+TMP_ZIP=$(mktemp /tmp/camunda-plugin-XXXXXX.zip)
+curl -fsSL "$DOWNLOAD_URL" -o "$TMP_ZIP"
+unzip -qo "$TMP_ZIP" -d "$PLUGIN_DIR"
+rm -f "$TMP_ZIP"
+
 echo ""
-echo "✅ Installation complete!"
-echo "📁 Plugin installed at: $PLUGIN_DIR"
+echo "Installation complete! (v$VERSION)"
+echo "Location: $PLUGIN_DIR/$PLUGIN_NAME"
 echo ""
-echo "⚠️  Please restart Camunda Modeler for the plugin to take effect."
+echo "Please restart Camunda Modeler for the plugin to take effect."
