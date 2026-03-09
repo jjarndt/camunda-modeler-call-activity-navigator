@@ -8,6 +8,7 @@ import { getPathSeparator, normalizePath } from './path-utils.mjs';
 import { ProcessIndex } from './process-index.mjs';
 import { NavigatorSearch } from './navigator-search.mjs';
 import { extractProcessIds } from './bpmn-parser.mjs';
+import { waitForFileDiscovery } from './file-discovery.mjs';
 
 console.log('[CallActivityNavigator] CLIENT MODULE LOADED, registering...');
 
@@ -28,10 +29,12 @@ class CallActivityNavigatorPlugin extends PureComponent {
       index: this._index
     });
     this._knownFiles = new Set(); // Files known from the modeler
+    this._fileContextListeners = [];
+    this._searchInProgress = null;
 
     // Collect files reported by the modeler
     this._backend = _getGlobal('backend');
-    this._rootAdded = false;
+    this._addedRoots = new Set();
 
     this._backend.on('file-context:changed', (_, items) => {
       console.log('[CallActivityNavigator] file-context:changed event, items:', items?.length || 0);
@@ -58,6 +61,10 @@ class CallActivityNavigatorPlugin extends PureComponent {
         this._search.invalidateFile(filePath);
       }
       console.log('[CallActivityNavigator] knownFiles now:', this._knownFiles.size);
+
+      for (const listener of this._fileContextListeners) {
+        listener();
+      }
     });
 
     subscribe('app.activeTabChanged', ({ activeTab }) => {
@@ -90,7 +97,29 @@ class CallActivityNavigatorPlugin extends PureComponent {
   }
 
   async _handleOpenProcess(processId) {
+    if (this._searchInProgress) {
+      await this._searchInProgress;
+    }
+    try {
+      this._searchInProgress = this._doHandleOpenProcess(processId);
+      await this._searchInProgress;
+    } finally {
+      this._searchInProgress = null;
+    }
+  }
+
+  async _doHandleOpenProcess(processId) {
     console.log('[CallActivityNavigator] _handleOpenProcess START', { processId });
+
+    if (!/^[a-zA-Z0-9_\-.:]+$/.test(processId)) {
+      this._displayNotification({
+        type: 'warning',
+        title: 'Invalid process ID',
+        content: 'The process ID contains invalid characters.'
+      });
+      return;
+    }
+
     const currentFilePath = this._activeTab?.file?.path;
     console.log('[CallActivityNavigator] currentFilePath:', currentFilePath);
 
@@ -178,23 +207,25 @@ class CallActivityNavigatorPlugin extends PureComponent {
     console.log('[CallActivityNavigator] Stage 4: rootDir:', rootDir);
     console.log('[CallActivityNavigator] Stage 4: knownFiles before add-root:', this._knownFiles.size);
 
-    // Add root directory to file-context if not already added
-    if (!this._rootAdded) {
+    // Add root directory to file-context if not already added for this rootDir
+    if (!this._addedRoots.has(rootDir)) {
       console.log('[CallActivityNavigator] Stage 4: Calling file-context:add-root with:', rootDir);
-      console.log('[CallActivityNavigator] Stage 4: backend.send type:', typeof this._backend.send);
 
       try {
-        // filePath is the correct parameter name (not path)
-        const result = await this._backend.send('file-context:add-root', { filePath: rootDir });
-        console.log('[CallActivityNavigator] Stage 4: add-root result:', result);
-        this._rootAdded = true;
+        const knownFilesBefore = this._knownFiles.size;
+        await this._backend.send('file-context:add-root', { filePath: rootDir });
+        await this._waitForFileDiscovery();
 
-        // Wait for the file-context:changed event to fire
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        console.log('[CallActivityNavigator] Stage 4: knownFiles after add-root:', this._knownFiles.size);
+        const newFilesCount = this._knownFiles.size - knownFilesBefore;
+        console.log('[CallActivityNavigator] Stage 4: discovered', newFilesCount, 'new files');
+
+        // Only mark as added when files were actually discovered
+        if (newFilesCount > 0) {
+          this._addedRoots.add(rootDir);
+        }
       } catch (error) {
         console.error('[CallActivityNavigator] Stage 4: add-root failed:', error);
-        // Try alternative: just search known files without adding root
+        // Not marking as added -- will retry on next invocation
       }
     }
 
@@ -207,18 +238,22 @@ class CallActivityNavigatorPlugin extends PureComponent {
       if (!this._search.isFileIndexed(filePath)) {
         console.log('[CallActivityNavigator] Stage 4: indexing:', filePath);
         await this._search.indexFile(filePath);
-
-        // Check if we found it
-        const locations = this._search.getLocations(processId);
-        if (locations && locations.length > 0) {
-          console.log('[CallActivityNavigator] Stage 4: FOUND!', locations);
-          return this._search.findBestMatch(locations, currentFilePath).path;
-        }
       }
+    }
+
+    // After indexing all files, find the best match
+    const locations = this._search.getLocations(processId);
+    if (locations && locations.length > 0) {
+      console.log('[CallActivityNavigator] Stage 4: FOUND!', locations);
+      return this._search.findBestMatch(locations, currentFilePath).path;
     }
 
     console.log('[CallActivityNavigator] Stage 4: Not found in known files');
     return null;
+  }
+
+  _waitForFileDiscovery() {
+    return waitForFileDiscovery(this._fileContextListeners);
   }
 
   async _tryRelativePaths(processId, currentFilePath) {

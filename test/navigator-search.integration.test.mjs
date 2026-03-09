@@ -51,6 +51,26 @@ test('searchInKnownFiles indexes each file once, even if it has no processes', a
   assert.equal(readCounts.get('/proj/single.bpmn'), 1);
 });
 
+test('searchInKnownFiles returns closest match when processId exists in multiple files', async () => {
+  const single = await readFixture('single-process.bpmn');
+
+  const files = new Map([
+    ['/proj/far/away/a.bpmn', single],
+    ['/proj/sub/b.bpmn', single],
+    ['/proj/sub/deep/c.bpmn', single]
+  ]);
+  const readCounts = new Map();
+  const fileSystem = createFileSystem(files, readCounts);
+  const index = new ProcessIndex();
+  const search = new NavigatorSearch({ fileSystem, index });
+  const knownFiles = new Set(files.keys());
+
+  const found = await search.searchInKnownFiles(
+    'Process_A', '/proj/sub/current.bpmn', knownFiles
+  );
+  assert.equal(found, '/proj/sub/b.bpmn');
+});
+
 test('invalidateFile forces reindex and updates process mapping', async () => {
   const single = await readFixture('single-process.bpmn');
   const updated = single.replace('Process_A', 'Process_B');
