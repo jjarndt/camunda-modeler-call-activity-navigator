@@ -53,3 +53,24 @@ test('normalizePath handles current-dir dots', () => {
   assert.equal(normalizePath('/a/./b/./c', '/'), '/a/b/c');
   assert.equal(normalizePath('C:\\a\\.\\b\\.\\c', '\\'), 'C:\\a\\b\\c');
 });
+
+test('normalizePath auto-detects backslash separator when no preferredSep given', () => {
+  assert.equal(normalizePath('C:\\a\\b\\..\\c'), 'C:\\a\\c');
+});
+
+test('normalizePath with only current-dir dot returns empty for posix', () => {
+  assert.equal(normalizePath('.', '/'), '');
+});
+
+test('normalizePath handles relative parent traversal', () => {
+  assert.equal(normalizePath('a/b/../../c', '/'), 'c');
+  assert.equal(normalizePath('a/../..', '/'), '..');
+});
+
+test('normalizePath handles deeply nested parent traversal at root', () => {
+  assert.equal(normalizePath('/a/b/../../../c', '/'), '/c');
+});
+
+test('getPathSeparator detects backslash even in mixed paths', () => {
+  assert.equal(getPathSeparator('C:\\Users/mixed/path'), '\\');
+});

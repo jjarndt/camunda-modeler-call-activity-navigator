@@ -76,3 +76,17 @@ test('extractProcessIds handles process element with many attributes (id not fir
 </bpmn:definitions>`;
   assert.deepEqual(extractProcessIds(xml), ['Process_NotFirst']);
 });
+
+test('extractProcessIds returns empty for number input', () => {
+  assert.deepEqual(extractProcessIds(42), []);
+  assert.deepEqual(extractProcessIds({}), []);
+});
+
+test('extractProcessIds ignores non-process elements with id attributes', () => {
+  const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL">
+  <bpmn:serviceTask id="Task_1" name="Do something" />
+  <bpmn:startEvent id="Start_1" name="Begin" />
+</bpmn:definitions>`;
+  assert.deepEqual(extractProcessIds(xml), []);
+});

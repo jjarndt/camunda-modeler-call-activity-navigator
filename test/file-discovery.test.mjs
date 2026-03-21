@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { waitForFileDiscovery } from '../client/file-discovery.mjs';
 
 test('resolves after 500ms initial timeout when no events fire', async (t) => {
-  t.mock.timers.enable({ apis: ['setTimeout'] });
+  t.mock.timers.enable(['setTimeout']);
 
   const listeners = [];
   let resolved = false;
@@ -23,7 +23,7 @@ test('resolves after 500ms initial timeout when no events fire', async (t) => {
 });
 
 test('resolves 200ms after a single event', async (t) => {
-  t.mock.timers.enable({ apis: ['setTimeout'] });
+  t.mock.timers.enable(['setTimeout']);
 
   const listeners = [];
   let resolved = false;
@@ -46,7 +46,7 @@ test('resolves 200ms after a single event', async (t) => {
 });
 
 test('resets debounce on each event', async (t) => {
-  t.mock.timers.enable({ apis: ['setTimeout'] });
+  t.mock.timers.enable(['setTimeout']);
 
   const listeners = [];
   let resolved = false;
@@ -74,7 +74,7 @@ test('resets debounce on each event', async (t) => {
 });
 
 test('respects 5s max timeout with continuous events', async (t) => {
-  t.mock.timers.enable({ apis: ['setTimeout'] });
+  t.mock.timers.enable(['setTimeout']);
 
   const listeners = [];
   let resolved = false;
@@ -97,7 +97,7 @@ test('respects 5s max timeout with continuous events', async (t) => {
 });
 
 test('does not leave listener after resolution', async (t) => {
-  t.mock.timers.enable({ apis: ['setTimeout'] });
+  t.mock.timers.enable(['setTimeout']);
 
   const listeners = [];
   const promise = waitForFileDiscovery(listeners);
@@ -114,7 +114,7 @@ test('does not leave listener after resolution', async (t) => {
 });
 
 test('works with pre-existing listeners in array', async (t) => {
-  t.mock.timers.enable({ apis: ['setTimeout'] });
+  t.mock.timers.enable(['setTimeout']);
 
   const otherListener = () => {};
   const listeners = [otherListener];

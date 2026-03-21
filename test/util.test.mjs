@@ -96,3 +96,31 @@ test('getCalledProcessId prefers zeebe extension over calledElement', () => {
   };
   assert.equal(getCalledProcessId(element), 'ZeebeWins');
 });
+
+// --- isCallActivity: undefined type ---
+
+test('isCallActivity returns false for undefined type', () => {
+  assert.equal(isCallActivity({}), false);
+  assert.equal(isCallActivity({ type: undefined }), false);
+});
+
+// --- getCalledProcessId: zeebe CalledElement without processId ---
+
+test('getCalledProcessId returns null when zeebe CalledElement has no processId', () => {
+  const element = {
+    businessObject: {
+      get: (attr) => {
+        if (attr === 'extensionElements') {
+          return {
+            get: () => [
+              { $type: 'zeebe:CalledElement', get: () => null }
+            ]
+          };
+        }
+        if (attr === 'calledElement') return undefined;
+        return undefined;
+      }
+    }
+  };
+  assert.equal(getCalledProcessId(element), null);
+});
