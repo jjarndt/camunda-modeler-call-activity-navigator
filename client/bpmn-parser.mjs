@@ -1,11 +1,7 @@
 export function extractProcessIds(content) {
-  const processIds = [];
-  const regex = /<bpmn2?:process[^>]+id="([^"]+)"/g;
-  let match;
+  if (!content || typeof content !== 'string') return [];
 
-  while ((match = regex.exec(content)) !== null) {
-    processIds.push(match[1]);
-  }
+  const matches = content.matchAll(/<bpmn2?:process[^>]+id="([^"]+)"/g);
 
-  return processIds;
+  return Array.from(matches, (m) => m[1]);
 }

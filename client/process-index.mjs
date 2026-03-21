@@ -1,45 +1,48 @@
 export class ProcessIndex {
   constructor() {
-    this._processIndex = new Map(); // processId -> Array<{path: string}>
-    this._fileIndex = new Map(); // filePath -> Set<processId>
+    this._locationsByProcess = new Map(); // processId -> Array<{ path: string }>
+    this._processesByFile = new Map(); // filePath -> Set<processId>
   }
 
   isIndexed(filePath) {
-    return this._fileIndex.has(filePath);
+    return this._processesByFile.has(filePath);
   }
 
   getLocations(processId) {
-    return this._processIndex.get(processId) || [];
+    return this._locationsByProcess.get(processId) || [];
   }
 
   setFileIndex(filePath, processIds) {
     this.removeFile(filePath);
 
-    const pidSet = new Set(processIds || []);
-    for (const pid of pidSet) {
-      const existing = this._processIndex.get(pid) || [];
+    const uniqueProcessIds = new Set(processIds || []);
+
+    for (const processId of uniqueProcessIds) {
+      const existing = this._locationsByProcess.get(processId) || [];
       existing.push({ path: filePath });
-      this._processIndex.set(pid, existing);
+      this._locationsByProcess.set(processId, existing);
     }
 
-    this._fileIndex.set(filePath, pidSet);
+    this._processesByFile.set(filePath, uniqueProcessIds);
   }
 
   removeFile(filePath) {
-    const pids = this._fileIndex.get(filePath);
-    if (!pids) return;
+    const processIds = this._processesByFile.get(filePath);
+    if (!processIds) return;
 
-    for (const pid of pids) {
-      const locations = this._processIndex.get(pid);
+    for (const processId of processIds) {
+      const locations = this._locationsByProcess.get(processId);
       if (!locations) continue;
+
       const filtered = locations.filter(loc => loc.path !== filePath);
+
       if (filtered.length === 0) {
-        this._processIndex.delete(pid);
+        this._locationsByProcess.delete(processId);
       } else {
-        this._processIndex.set(pid, filtered);
+        this._locationsByProcess.set(processId, filtered);
       }
     }
 
-    this._fileIndex.delete(filePath);
+    this._processesByFile.delete(filePath);
   }
 }

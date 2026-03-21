@@ -1,5 +1,23 @@
 import { extractProcessIds } from './bpmn-parser.mjs';
 
+function parentDir(filePath) {
+  return filePath.split(/[/\\]/).slice(0, -1).join('/');
+}
+
+function commonPrefixLength(dirA, dirB) {
+  const partsA = dirA.split('/');
+  const partsB = dirB.split('/');
+  const limit = Math.min(partsA.length, partsB.length);
+
+  let count = 0;
+  for (let i = 0; i < limit; i++) {
+    if (partsA[i] !== partsB[i]) break;
+    count++;
+  }
+
+  return count;
+}
+
 export class NavigatorSearch {
   constructor({ fileSystem, index }) {
     this._fileSystem = fileSystem;
@@ -21,11 +39,10 @@ export class NavigatorSearch {
   async indexFile(filePath) {
     try {
       const file = await this._fileSystem.readFile(filePath);
-      const contents = file?.contents || '';
-      const processIds = extractProcessIds(contents);
+      const processIds = extractProcessIds(file?.contents || '');
       this._index.setFileIndex(filePath, processIds);
-    } catch (error) {
-      // File could not be read - mark as indexed to avoid repeated I/O
+    } catch {
+      // Mark as indexed with no processes to avoid repeated I/O failures
       this._index.setFileIndex(filePath, []);
     }
   }
@@ -34,25 +51,22 @@ export class NavigatorSearch {
     try {
       const file = await this._fileSystem.readFile(filePath);
       return extractProcessIds(file?.contents || '');
-    } catch (error) {
+    } catch {
       return [];
     }
   }
 
   async searchInKnownFiles(processId, currentFilePath, knownFiles) {
-    // Scan known files and build index on-demand
     for (const filePath of knownFiles) {
       if (filePath === currentFilePath) continue;
 
-      // Check if we have already indexed this file
       if (!this.isFileIndexed(filePath)) {
         await this.indexFile(filePath);
       }
     }
 
-    // Search in index
     const locations = this.getLocations(processId);
-    if (locations && locations.length > 0) {
+    if (locations?.length > 0) {
       return this.findBestMatch(locations, currentFilePath).path;
     }
 
@@ -64,26 +78,15 @@ export class NavigatorSearch {
       return locations[0];
     }
 
-    const currentDir = currentFilePath.split(/[/\\]/).slice(0, -1).join('/');
+    const currentDir = parentDir(currentFilePath);
     let bestMatch = locations[0];
     let bestScore = 0;
 
     for (const location of locations) {
-      const locationDir = location.path.split(/[/\\]/).slice(0, -1).join('/');
-      const currentParts = currentDir.split('/');
-      const locationParts = locationDir.split('/');
-      let commonParts = 0;
+      const score = commonPrefixLength(currentDir, parentDir(location.path));
 
-      for (let i = 0; i < Math.min(currentParts.length, locationParts.length); i++) {
-        if (currentParts[i] === locationParts[i]) {
-          commonParts++;
-        } else {
-          break;
-        }
-      }
-
-      if (commonParts > bestScore) {
-        bestScore = commonParts;
+      if (score > bestScore) {
+        bestScore = score;
         bestMatch = location;
       }
     }

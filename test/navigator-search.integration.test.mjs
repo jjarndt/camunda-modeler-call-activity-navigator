@@ -96,3 +96,58 @@ test('invalidateFile forces reindex and updates process mapping', async () => {
   assert.equal(foundNew, '/proj/single.bpmn');
   assert.equal(readCounts.get('/proj/single.bpmn'), 2);
 });
+
+test('searchInKnownFiles returns null when process is not found in any file', async () => {
+  const single = await readFixture('single-process.bpmn');
+
+  const files = new Map([
+    ['/proj/a.bpmn', single],
+    ['/proj/b.bpmn', single]
+  ]);
+  const readCounts = new Map();
+  const fileSystem = createFileSystem(files, readCounts);
+  const index = new ProcessIndex();
+  const search = new NavigatorSearch({ fileSystem, index });
+  const knownFiles = new Set(files.keys());
+
+  const found = await search.searchInKnownFiles('NonExistent_Process', '/proj/current.bpmn', knownFiles);
+  assert.equal(found, null);
+});
+
+test('searchInKnownFiles skips the current file when searching', async () => {
+  const single = await readFixture('single-process.bpmn');
+
+  const files = new Map([
+    ['/proj/current.bpmn', single]
+  ]);
+  const readCounts = new Map();
+  const fileSystem = createFileSystem(files, readCounts);
+  const index = new ProcessIndex();
+  const search = new NavigatorSearch({ fileSystem, index });
+  const knownFiles = new Set(files.keys());
+
+  const found = await search.searchInKnownFiles('Process_A', '/proj/current.bpmn', knownFiles);
+  assert.equal(found, null);
+  assert.equal(readCounts.has('/proj/current.bpmn'), false);
+});
+
+test('findBestMatch returns the only location when there is exactly one', () => {
+  const index = new ProcessIndex();
+  const search = new NavigatorSearch({ fileSystem: {}, index });
+
+  const locations = [{ path: '/proj/only.bpmn' }];
+  const result = search.findBestMatch(locations, '/proj/current.bpmn');
+  assert.equal(result.path, '/proj/only.bpmn');
+});
+
+test('findBestMatch returns first location when currentFilePath is null', () => {
+  const index = new ProcessIndex();
+  const search = new NavigatorSearch({ fileSystem: {}, index });
+
+  const locations = [
+    { path: '/proj/first.bpmn' },
+    { path: '/proj/second.bpmn' }
+  ];
+  const result = search.findBestMatch(locations, null);
+  assert.equal(result.path, '/proj/first.bpmn');
+});

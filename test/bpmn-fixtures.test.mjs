@@ -34,3 +34,45 @@ test('extractProcessIds handles mixed namespaces with bpmn2 prefix', async () =>
   const content = await readFixture('namespaces-mixed.bpmn');
   assert.deepEqual(extractProcessIds(content), ['Process_X']);
 });
+
+// --- Edge-case tests (inline, no fixture files) ---
+
+test('extractProcessIds returns empty array for empty string', () => {
+  assert.deepEqual(extractProcessIds(''), []);
+});
+
+test('extractProcessIds returns empty array for null/undefined input', () => {
+  assert.deepEqual(extractProcessIds(null), []);
+  assert.deepEqual(extractProcessIds(undefined), []);
+});
+
+test('extractProcessIds returns empty array for plain text (no XML)', () => {
+  assert.deepEqual(extractProcessIds('just some random text without any xml'), []);
+});
+
+test('extractProcessIds returns empty array for XML without process elements', () => {
+  const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL">
+  <bpmn:collaboration id="Collab_1">
+    <bpmn:participant id="Participant_1" />
+  </bpmn:collaboration>
+</bpmn:definitions>`;
+  assert.deepEqual(extractProcessIds(xml), []);
+});
+
+test('extractProcessIds handles self-closing process tags', () => {
+  const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL">
+  <bpmn:process id="SelfClosing_1" />
+</bpmn:definitions>`;
+  assert.deepEqual(extractProcessIds(xml), ['SelfClosing_1']);
+});
+
+test('extractProcessIds handles process element with many attributes (id not first)', () => {
+  const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL">
+  <bpmn:process isExecutable="true" name="My Process" id="Process_NotFirst" isClosed="false">
+  </bpmn:process>
+</bpmn:definitions>`;
+  assert.deepEqual(extractProcessIds(xml), ['Process_NotFirst']);
+});

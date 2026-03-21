@@ -1,5 +1,7 @@
 const CamundaModelerWebpackPlugin = require('camunda-modeler-webpack-plugin');
+const webpack = require('webpack');
 const path = require('path');
+const pkg = require('./package.json');
 
 module.exports = {
   mode: 'development',
@@ -9,6 +11,9 @@ module.exports = {
     filename: 'client.js'
   },
   plugins: [
-    new CamundaModelerWebpackPlugin()
+    new CamundaModelerWebpackPlugin(),
+    new webpack.DefinePlugin({
+      __PLUGIN_VERSION__: JSON.stringify(pkg.version)
+    })
   ]
 };

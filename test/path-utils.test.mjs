@@ -26,3 +26,30 @@ test('normalizePath handles windows drive paths', () => {
 test('normalizePath handles UNC paths', () => {
   assert.equal(normalizePath('\\\\server\\share\\a\\..\\b', '\\'), '\\\\server\\share\\b');
 });
+
+test('getPathSeparator returns / for empty/null/undefined input', () => {
+  assert.equal(getPathSeparator(''), '/');
+  assert.equal(getPathSeparator(null), '/');
+  assert.equal(getPathSeparator(undefined), '/');
+});
+
+test('normalizePath returns null/undefined unchanged for falsy input', () => {
+  assert.equal(normalizePath(null, '/'), null);
+  assert.equal(normalizePath(undefined, '/'), undefined);
+  assert.equal(normalizePath('', '/'), '');
+});
+
+test('normalizePath handles double separators', () => {
+  assert.equal(normalizePath('/a//b//c', '/'), '/a/b/c');
+  assert.equal(normalizePath('C:\\a\\\\b\\\\c', '\\'), 'C:\\a\\b\\c');
+});
+
+test('normalizePath handles trailing separator', () => {
+  assert.equal(normalizePath('/a/b/', '/'), '/a/b');
+  assert.equal(normalizePath('C:\\a\\b\\', '\\'), 'C:\\a\\b');
+});
+
+test('normalizePath handles current-dir dots', () => {
+  assert.equal(normalizePath('/a/./b/./c', '/'), '/a/b/c');
+  assert.equal(normalizePath('C:\\a\\.\\b\\.\\c', '\\'), 'C:\\a\\b\\c');
+});

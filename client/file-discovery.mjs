@@ -1,30 +1,32 @@
-/**
- * Wait for file discovery to settle by listening for events with debounce.
- *
- * @param {Function[]} listeners - Mutable array of event listeners
- * @returns {Promise<void>} Resolves when discovery has settled
- */
+const DEBOUNCE_MS = 200;
+const INITIAL_TIMEOUT_MS = 500;
+const MAX_TIMEOUT_MS = 5000;
+
+function removeListener(listeners, listener) {
+  const idx = listeners.indexOf(listener);
+  if (idx >= 0) listeners.splice(idx, 1);
+}
+
 export function waitForFileDiscovery(listeners) {
   return new Promise((resolve) => {
     let debounceTimer;
-    const maxTimer = setTimeout(done, 5000);
+    const maxTimer = setTimeout(done, MAX_TIMEOUT_MS);
 
     function done() {
       clearTimeout(debounceTimer);
       clearTimeout(maxTimer);
-      const idx = listeners.indexOf(onEvent);
-      if (idx >= 0) listeners.splice(idx, 1);
+      removeListener(listeners, onEvent);
       resolve();
     }
 
     function onEvent() {
       clearTimeout(debounceTimer);
-      debounceTimer = setTimeout(done, 200);
+      debounceTimer = setTimeout(done, DEBOUNCE_MS);
     }
 
     listeners.push(onEvent);
 
-    // Falls gar keine Events kommen: nach 500ms aufgeben
-    debounceTimer = setTimeout(done, 500);
+    // If no events arrive, give up after the initial timeout
+    debounceTimer = setTimeout(done, INITIAL_TIMEOUT_MS);
   });
 }

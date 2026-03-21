@@ -1,6 +1,4 @@
-console.log('[CallActivityNavigator] CLIENT MODULE LOADING...');
-
-import React, { PureComponent } from 'react';
+import { PureComponent } from 'react';
 import { registerClientExtension } from 'camunda-modeler-plugin-helpers';
 
 import CallActivityContextPadModule from './bpmn-extension';
@@ -9,13 +7,25 @@ import { ProcessIndex } from './process-index.mjs';
 import { NavigatorSearch } from './navigator-search.mjs';
 import { extractProcessIds } from './bpmn-parser.mjs';
 import { waitForFileDiscovery } from './file-discovery.mjs';
+import { debug, error } from './log.mjs';
+import { checkForUpdate } from './update-check.mjs';
 
-console.log('[CallActivityNavigator] CLIENT MODULE LOADED, registering...');
+const VALID_PROCESS_ID = /^[a-zA-Z0-9_\-.:]+$/;
+const UPDATE_CHECK_DELAY_MS = 30_000;
+const BPMN_ROOT_PATTERN = /(.+[\\/](?:processes|bpmn))[\\/]/;
+
+function isFileRemoval(item) {
+  return item.type === 'removed' ||
+    item.type === 'deleted' ||
+    item.action === 'removed' ||
+    item.action === 'deleted' ||
+    item.removed === true ||
+    item.deleted === true;
+}
 
 class CallActivityNavigatorPlugin extends PureComponent {
   constructor(props) {
     super(props);
-    console.log('[CallActivityNavigator] PLUGIN CONSTRUCTOR START');
 
     const { subscribe, triggerAction, displayNotification, _getGlobal } = props;
 
@@ -28,71 +38,79 @@ class CallActivityNavigatorPlugin extends PureComponent {
       fileSystem: _getGlobal('fileSystem'),
       index: this._index
     });
-    this._knownFiles = new Set(); // Files known from the modeler
+    this._knownFiles = new Set();
     this._fileContextListeners = [];
     this._searchInProgress = null;
-
-    // Collect files reported by the modeler
     this._backend = _getGlobal('backend');
     this._addedRoots = new Set();
 
-    this._backend.on('file-context:changed', (_, items) => {
-      console.log('[CallActivityNavigator] file-context:changed event, items:', items?.length || 0);
-      if (!items) return;
-      for (const item of items) {
-        const filePath = item.file?.path;
-        if (!filePath || !filePath.endsWith('.bpmn')) continue;
-
-        const isRemoved = item.type === 'removed' ||
-          item.type === 'deleted' ||
-          item.action === 'removed' ||
-          item.action === 'deleted' ||
-          item.removed === true ||
-          item.deleted === true;
-
-        if (isRemoved) {
-          this._knownFiles.delete(filePath);
-          this._search.invalidateFile(filePath);
-          continue;
-        }
-
-        // Mark as known and dirty so we re-index on next search
-        this._knownFiles.add(filePath);
-        this._search.invalidateFile(filePath);
-      }
-      console.log('[CallActivityNavigator] knownFiles now:', this._knownFiles.size);
-
-      for (const listener of this._fileContextListeners) {
-        listener();
-      }
-    });
+    this._backend.on('file-context:changed', (_, items) => this._onFileContextChanged(items));
 
     subscribe('app.activeTabChanged', ({ activeTab }) => {
       this._activeTab = activeTab;
     });
 
-    subscribe('bpmn.modeler.configure', ({ middlewares }) => {
-      middlewares.push(config => {
-        return {
-          ...config,
-          additionalModules: [
-            ...(config.additionalModules || []),
-            CallActivityContextPadModule
-          ]
-        };
+    this._scheduleUpdateCheck();
+    this._configureModeler(subscribe);
+  }
+
+  _onFileContextChanged(items) {
+    if (!items) return;
+
+    for (const item of items) {
+      const filePath = item.file?.path;
+      if (!filePath || !filePath.endsWith('.bpmn')) continue;
+
+      if (isFileRemoval(item)) {
+        this._knownFiles.delete(filePath);
+        this._search.invalidateFile(filePath);
+        continue;
+      }
+
+      this._knownFiles.add(filePath);
+      this._search.invalidateFile(filePath);
+    }
+
+    debug('file-context:changed, knownFiles:', this._knownFiles.size);
+
+    for (const listener of this._fileContextListeners) {
+      listener();
+    }
+  }
+
+  _scheduleUpdateCheck() {
+    setTimeout(() => {
+      checkForUpdate(__PLUGIN_VERSION__).then(result => {
+        if (result.available) {
+          this._displayNotification({
+            type: 'info',
+            title: 'Update available',
+            content: `Call Activity Navigator v${result.latest} is available. Run the install command or visit GitHub Releases to update.`,
+            link: { label: 'GitHub Release', href: result.url }
+          });
+        }
       });
+    }, UPDATE_CHECK_DELAY_MS);
+  }
+
+  _configureModeler(subscribe) {
+    subscribe('bpmn.modeler.configure', ({ middlewares }) => {
+      middlewares.push(config => ({
+        ...config,
+        additionalModules: [
+          ...(config.additionalModules || []),
+          CallActivityContextPadModule
+        ]
+      }));
     });
 
     subscribe('bpmn.modeler.created', ({ modeler }) => {
-      console.log('[CallActivityNavigator] bpmn.modeler.created - registering listener');
       const eventBus = modeler.get('eventBus');
-      console.log('[CallActivityNavigator] eventBus:', eventBus);
 
       eventBus.on('callActivity.openProcess', (event) => {
-        console.log('[CallActivityNavigator] EVENT RECEIVED:', event);
+        debug('openProcess:', event.processId);
         this._handleOpenProcess(event.processId);
       });
-      console.log('[CallActivityNavigator] Listener registered');
     });
   }
 
@@ -109,33 +127,18 @@ class CallActivityNavigatorPlugin extends PureComponent {
   }
 
   async _doHandleOpenProcess(processId) {
-    console.log('[CallActivityNavigator] _handleOpenProcess START', { processId });
-
-    if (!/^[a-zA-Z0-9_\-.:]+$/.test(processId)) {
-      this._displayNotification({
-        type: 'warning',
-        title: 'Invalid process ID',
-        content: 'The process ID contains invalid characters.'
-      });
-      return;
+    if (!VALID_PROCESS_ID.test(processId)) {
+      return this._warn('Invalid process ID', 'The process ID contains invalid characters.');
     }
 
     const currentFilePath = this._activeTab?.file?.path;
-    console.log('[CallActivityNavigator] currentFilePath:', currentFilePath);
 
     if (!currentFilePath) {
-      this._displayNotification({
-        type: 'warning',
-        title: 'No file opened',
-        content: 'Please save the file first.'
-      });
-      return;
+      return this._warn('No file opened', 'Please save the file first.');
     }
 
-    // 1. Check if the process is embedded in the current file
-    console.log('[CallActivityNavigator] Stage 1: Checking embedded processes...');
+    // Embedded in current file?
     const embeddedProcessIds = await this._search.getProcessIdsFromFile(currentFilePath);
-    console.log('[CallActivityNavigator] Stage 1: embeddedProcessIds:', embeddedProcessIds);
     if (embeddedProcessIds.includes(processId)) {
       this._displayNotification({
         type: 'info',
@@ -145,110 +148,60 @@ class CallActivityNavigatorPlugin extends PureComponent {
       return;
     }
 
-    // 2. Search in known files (from the modeler)
-    console.log('[CallActivityNavigator] Stage 2: Searching in known files...');
-    console.log('[CallActivityNavigator] Stage 2: knownFiles count:', this._knownFiles.size);
-    console.log('[CallActivityNavigator] Stage 2: knownFiles:', [...this._knownFiles]);
+    // Known files
     const foundInKnown = await this._searchInKnownFiles(processId, currentFilePath);
-    console.log('[CallActivityNavigator] Stage 2: foundInKnown:', foundInKnown);
-    if (foundInKnown) {
-      this._triggerAction('open-diagram', { path: foundInKnown });
-      return;
-    }
+    if (foundInKnown) return this._openDiagram(foundInKnown);
 
-    // 3. Try relative paths based on the process ID
-    console.log('[CallActivityNavigator] Stage 3: Trying relative paths...');
+    // Relative paths
     const foundRelative = await this._tryRelativePaths(processId, currentFilePath);
-    console.log('[CallActivityNavigator] Stage 3: foundRelative:', foundRelative);
-    if (foundRelative) {
-      this._triggerAction('open-diagram', { path: foundRelative });
-      return;
-    }
+    if (foundRelative) return this._openDiagram(foundRelative);
 
-    // 4. Project scan (if readDir is available)
-    // 4. Scan sibling directories (since readDir is not available, try common patterns)
-    console.log('[CallActivityNavigator] Stage 4: Scanning sibling directories...');
+    // Sibling directories
     try {
       const foundInSiblings = await this._searchInSiblingDirs(processId, currentFilePath);
-      console.log('[CallActivityNavigator] Stage 4: foundInSiblings:', foundInSiblings);
-      if (foundInSiblings) {
-        this._triggerAction('open-diagram', { path: foundInSiblings });
-        return;
-      }
-    } catch (error) {
-      console.error('[CallActivityNavigator] Stage 4 failed:', error);
+      if (foundInSiblings) return this._openDiagram(foundInSiblings);
+    } catch (err) {
+      error('project scan failed:', err);
     }
 
-    console.log('[CallActivityNavigator] ALL STAGES FAILED - showing notification');
-    this._displayNotification({
-      type: 'warning',
-      title: 'Process not found',
-      content: `Could not find "${processId}". Please open the file manually.`
-    });
+    this._warn('Process not found', `Could not find "${processId}". Please open the file manually.`);
+  }
+
+  _openDiagram(path) {
+    this._triggerAction('open-diagram', { path });
+  }
+
+  _warn(title, content) {
+    this._displayNotification({ type: 'warning', title, content });
   }
 
   async _searchInKnownFiles(processId, currentFilePath) {
     return this._search.searchInKnownFiles(processId, currentFilePath, this._knownFiles);
   }
 
-  /**
-   * Stage 4: Add project root to file-context and search all discovered files.
-   * Uses backend.send('file-context:add-root') to discover all BPMN files.
-   */
   async _searchInSiblingDirs(processId, currentFilePath) {
-    // Find the "processes" or "bpmn" root directory
-    const processesMatch = currentFilePath.match(/(.+[\\/](?:processes|bpmn))[\\/]/);
+    const processesMatch = currentFilePath.match(BPMN_ROOT_PATTERN);
     if (!processesMatch) {
-      console.log('[CallActivityNavigator] Stage 4: No processes/bpmn directory found in path');
       return null;
     }
 
     const rootDir = processesMatch[1];
-    console.log('[CallActivityNavigator] Stage 4: rootDir:', rootDir);
-    console.log('[CallActivityNavigator] Stage 4: knownFiles before add-root:', this._knownFiles.size);
 
-    // Add root directory to file-context if not already added for this rootDir
-    if (!this._addedRoots.has(rootDir)) {
-      console.log('[CallActivityNavigator] Stage 4: Calling file-context:add-root with:', rootDir);
-
-      try {
-        const knownFilesBefore = this._knownFiles.size;
-        await this._backend.send('file-context:add-root', { filePath: rootDir });
-        await this._waitForFileDiscovery();
-
-        const newFilesCount = this._knownFiles.size - knownFilesBefore;
-        console.log('[CallActivityNavigator] Stage 4: discovered', newFilesCount, 'new files');
-
-        // Only mark as added when files were actually discovered
-        if (newFilesCount > 0) {
-          this._addedRoots.add(rootDir);
-        }
-      } catch (error) {
-        console.error('[CallActivityNavigator] Stage 4: add-root failed:', error);
-        // Not marking as added -- will retry on next invocation
-      }
-    }
-
-    // Now search all known files
-    console.log('[CallActivityNavigator] Stage 4: Searching in', this._knownFiles.size, 'known files...');
+    await this._discoverRoot(rootDir);
 
     for (const filePath of this._knownFiles) {
       if (filePath === currentFilePath) continue;
 
       if (!this._search.isFileIndexed(filePath)) {
-        console.log('[CallActivityNavigator] Stage 4: indexing:', filePath);
         await this._search.indexFile(filePath);
       }
     }
 
-    // After indexing all files, find the best match
     const locations = this._search.getLocations(processId);
-    if (locations && locations.length > 0) {
-      console.log('[CallActivityNavigator] Stage 4: FOUND!', locations);
+    if (locations?.length > 0) {
       return this._search.findBestMatch(locations, currentFilePath).path;
     }
 
-    console.log('[CallActivityNavigator] Stage 4: Not found in known files');
     return null;
   }
 
@@ -256,59 +209,71 @@ class CallActivityNavigatorPlugin extends PureComponent {
     return waitForFileDiscovery(this._fileContextListeners);
   }
 
+  async _discoverRoot(rootDir) {
+    if (this._addedRoots.has(rootDir)) return;
+
+    try {
+      const knownFilesBefore = this._knownFiles.size;
+      await this._backend.send('file-context:add-root', { filePath: rootDir });
+      await this._waitForFileDiscovery();
+
+      const newFilesCount = this._knownFiles.size - knownFilesBefore;
+      debug('discovered', newFilesCount, 'new files in', rootDir);
+
+      if (newFilesCount > 0) {
+        this._addedRoots.add(rootDir);
+      }
+    } catch (err) {
+      error('add-root failed:', err);
+    }
+  }
+
   async _tryRelativePaths(processId, currentFilePath) {
     const pathSep = getPathSeparator(currentFilePath);
     const currentDir = currentFilePath.split(/[/\\]/).slice(0, -1).join(pathSep);
-    console.log('[CallActivityNavigator] Stage 3: currentDir:', currentDir);
     const fileSystem = this._getGlobal('fileSystem');
 
-    // Possible file names based on the process ID
-    const possibleNames = [
-      `${processId}.bpmn`,
-      `${processId.replace(/_/g, '-')}.bpmn`,
-      `${processId.replace(/-/g, '_')}.bpmn`
-    ];
-    console.log('[CallActivityNavigator] Stage 3: possibleNames:', possibleNames);
+    const candidateNames = this._buildCandidateNames(processId);
+    const parentDirs = this._buildParentDirs(currentDir, pathSep, 5);
 
-    // Possible directories relative to the current file - go up to 5 levels
-    const possibleDirs = [
-      currentDir,                                              // Same directory
-      `${currentDir}${pathSep}..`,                             // Parent
-      `${currentDir}${pathSep}..${pathSep}..`,                 // Grandparent
-      `${currentDir}${pathSep}..${pathSep}..${pathSep}..`,     // 3 levels up
-      `${currentDir}${pathSep}..${pathSep}..${pathSep}..${pathSep}..`, // 4 levels up
-      `${currentDir}${pathSep}..${pathSep}..${pathSep}..${pathSep}..${pathSep}..`, // 5 levels up
-    ];
-    console.log('[CallActivityNavigator] Stage 3: possibleDirs:', possibleDirs);
-
-    for (const dir of possibleDirs) {
-      for (const name of possibleNames) {
-        const candidatePath = normalizePath(`${dir}${pathSep}${name}`, pathSep);
-        console.log('[CallActivityNavigator] Stage 3: trying path:', candidatePath);
+    for (const searchDir of parentDirs) {
+      for (const name of candidateNames) {
+        const candidatePath = normalizePath(`${searchDir}${pathSep}${name}`, pathSep);
 
         try {
           const file = await fileSystem.readFile(candidatePath);
-          console.log('[CallActivityNavigator] Stage 3: file read result:', file ? 'OK' : 'null', 'contents:', file?.contents?.length || 0, 'bytes');
-          if (file && file.contents) {
-            // Verify that the file contains the searched process
+          if (file?.contents) {
             const processIds = extractProcessIds(file.contents);
-            console.log('[CallActivityNavigator] Stage 3: processIds in file:', processIds);
             if (processIds.includes(processId)) {
-              console.log('[CallActivityNavigator] Stage 3: FOUND!', candidatePath);
-              // Add to known list for future searches
               this._knownFiles.add(candidatePath);
               await this._search.indexFile(candidatePath);
               return candidatePath;
             }
           }
-        } catch (error) {
-          // File does not exist or cannot be read - continue
-          console.log('[CallActivityNavigator] Stage 3: error for', candidatePath, ':', error.message || error);
+        } catch {
         }
       }
     }
 
     return null;
+  }
+
+  _buildCandidateNames(processId) {
+    return [
+      `${processId}.bpmn`,
+      `${processId.replace(/_/g, '-')}.bpmn`,
+      `${processId.replace(/-/g, '_')}.bpmn`
+    ];
+  }
+
+  _buildParentDirs(currentDir, pathSep, maxLevels) {
+    const dirs = [currentDir];
+    let dir = currentDir;
+    for (let i = 0; i < maxLevels; i++) {
+      dir = `${dir}${pathSep}..`;
+      dirs.push(dir);
+    }
+    return dirs;
   }
 
   render() {
@@ -317,4 +282,3 @@ class CallActivityNavigatorPlugin extends PureComponent {
 }
 
 registerClientExtension(CallActivityNavigatorPlugin);
-console.log('[CallActivityNavigator] REGISTERED!');

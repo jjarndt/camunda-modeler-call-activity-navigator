@@ -1,40 +1,26 @@
-/**
- * Get the called process ID from a Call Activity element.
- * Supports both Camunda 8 (Zeebe) and Camunda 7 (Platform).
- *
- * @param {Object} element - The bpmn-js element
- * @returns {string|null} The process ID or null if not found
- */
+function getZeebeProcessId(businessObject) {
+  const extensionElements = businessObject.get('extensionElements');
+  if (!extensionElements) return null;
+
+  const values = extensionElements.get('values') || [];
+  const zeebeCalledElement = values.find(
+    ext => ext.$type === 'zeebe:CalledElement'
+  );
+
+  return zeebeCalledElement ? zeebeCalledElement.get('processId') || null : null;
+}
+
 export function getCalledProcessId(element) {
   const businessObject = element.businessObject || element;
 
-  // Camunda 8: zeebe:CalledElement extension
-  const extensionElements = businessObject.get('extensionElements');
-  if (extensionElements) {
-    const values = extensionElements.get('values') || [];
-    const calledElement = values.find(
-      ext => ext.$type === 'zeebe:CalledElement'
-    );
-    if (calledElement) {
-      return calledElement.get('processId') || null;
-    }
-  }
+  // Camunda 8
+  const zeebeProcessId = getZeebeProcessId(businessObject);
+  if (zeebeProcessId) return zeebeProcessId;
 
-  // Camunda 7: calledElement attribute
-  const calledElement = businessObject.get('calledElement');
-  if (calledElement) {
-    return calledElement;
-  }
-
-  return null;
+  // Camunda 7
+  return businessObject.get('calledElement') || null;
 }
 
-/**
- * Check if an element is a Call Activity.
- *
- * @param {Object} element - The bpmn-js element
- * @returns {boolean}
- */
 export function isCallActivity(element) {
   return element.type === 'bpmn:CallActivity';
 }

@@ -3,42 +3,54 @@ export function getPathSeparator(filePath) {
   return filePath.includes('\\') ? '\\' : '/';
 }
 
+function startsWithSeparator(str) {
+  return str.startsWith('\\') || str.startsWith('/');
+}
+
+function extractRoot(path, isWindows) {
+  if (isWindows) {
+    return extractWindowsRoot(path);
+  }
+
+  if (path.startsWith('/')) {
+    return { root: '/', rest: path.slice(1), hasRootSep: true };
+  }
+
+  return { root: '', rest: path, hasRootSep: false };
+}
+
+function extractWindowsRoot(path) {
+  // UNC path: \\server\share
+  if (path.startsWith('\\\\')) {
+    const uncMatch = path.match(/^\\\\[^\\]+\\[^\\]+/);
+    if (uncMatch) {
+      return consumeRootSep(uncMatch[0], path.slice(uncMatch[0].length));
+    }
+  }
+
+  // Drive letter: C:
+  const driveMatch = path.match(/^[A-Za-z]:/);
+  if (driveMatch) {
+    return consumeRootSep(driveMatch[0], path.slice(driveMatch[0].length));
+  }
+
+  return { root: '', rest: path, hasRootSep: false };
+}
+
+function consumeRootSep(root, rest) {
+  if (startsWithSeparator(rest)) {
+    return { root, rest: rest.slice(1), hasRootSep: true };
+  }
+  return { root, rest, hasRootSep: false };
+}
+
 export function normalizePath(inputPath, preferredSep) {
   if (!inputPath) return inputPath;
 
   const sep = preferredSep || (inputPath.includes('\\') ? '\\' : '/');
   const isWindows = sep === '\\';
-  let root = '';
-  let rest = inputPath;
-  let hasRootSep = false;
 
-  if (isWindows) {
-    if (rest.startsWith('\\\\')) {
-      const uncMatch = rest.match(/^\\\\[^\\]+\\[^\\]+/);
-      if (uncMatch) {
-        root = uncMatch[0];
-        rest = rest.slice(root.length);
-        if (rest.startsWith('\\') || rest.startsWith('/')) {
-          hasRootSep = true;
-          rest = rest.slice(1);
-        }
-      }
-    } else {
-      const driveMatch = rest.match(/^[A-Za-z]:/);
-      if (driveMatch) {
-        root = driveMatch[0];
-        rest = rest.slice(root.length);
-        if (rest.startsWith('\\') || rest.startsWith('/')) {
-          hasRootSep = true;
-          rest = rest.slice(1);
-        }
-      }
-    }
-  } else if (rest.startsWith('/')) {
-    root = '/';
-    rest = rest.slice(1);
-    hasRootSep = true;
-  }
+  const { root, rest, hasRootSep } = extractRoot(inputPath, isWindows);
 
   const parts = rest.split(/[\\/]+/);
   const normalized = [];
