@@ -1,4 +1,4 @@
-import { getCalledProcessId, isCallActivity } from './util';
+import { getCalledProcessId, isCallActivity } from './util.mjs';
 
 const PROVIDER_PRIORITY = 900;
 

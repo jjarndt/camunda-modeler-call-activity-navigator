@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { getCalledProcessId, isCallActivity } from '../client/bpmn-extension/util.js';
+import { getCalledProcessId, isCallActivity } from '../client/bpmn-extension/util.mjs';
 
 // --- isCallActivity ---
 

@@ -3,7 +3,10 @@ import assert from 'node:assert/strict';
 
 import { waitForFileDiscovery } from '../client/file-discovery.mjs';
 
-test('resolves after 500ms initial timeout when no events fire', async (t) => {
+const nodeMajor = parseInt(process.versions.node.split('.')[0], 10);
+const skipMockTimers = nodeMajor < 20 ? 'Mock timers unreliable on Node < 20' : false;
+
+test('resolves after 500ms initial timeout when no events fire', { skip: skipMockTimers }, async (t) => {
   t.mock.timers.enable(['setTimeout']);
 
   const listeners = [];
@@ -22,7 +25,7 @@ test('resolves after 500ms initial timeout when no events fire', async (t) => {
   assert.equal(listeners.length, 0, 'should clean up listener');
 });
 
-test('resolves 200ms after a single event', async (t) => {
+test('resolves 200ms after a single event', { skip: skipMockTimers }, async (t) => {
   t.mock.timers.enable(['setTimeout']);
 
   const listeners = [];
@@ -45,7 +48,7 @@ test('resolves 200ms after a single event', async (t) => {
   assert.equal(listeners.length, 0, 'should clean up listener');
 });
 
-test('resets debounce on each event', async (t) => {
+test('resets debounce on each event', { skip: skipMockTimers }, async (t) => {
   t.mock.timers.enable(['setTimeout']);
 
   const listeners = [];
@@ -73,7 +76,7 @@ test('resets debounce on each event', async (t) => {
   assert.equal(resolved, true, 'should resolve 200ms after last event');
 });
 
-test('respects 5s max timeout with continuous events', async (t) => {
+test('respects 5s max timeout with continuous events', { skip: skipMockTimers }, async (t) => {
   t.mock.timers.enable(['setTimeout']);
 
   const listeners = [];
@@ -96,7 +99,7 @@ test('respects 5s max timeout with continuous events', async (t) => {
   assert.equal(listeners.length, 0, 'should clean up listener');
 });
 
-test('does not leave listener after resolution', async (t) => {
+test('does not leave listener after resolution', { skip: skipMockTimers }, async (t) => {
   t.mock.timers.enable(['setTimeout']);
 
   const listeners = [];
@@ -113,7 +116,7 @@ test('does not leave listener after resolution', async (t) => {
   // (the function was already removed from the array)
 });
 
-test('works with pre-existing listeners in array', async (t) => {
+test('works with pre-existing listeners in array', { skip: skipMockTimers }, async (t) => {
   t.mock.timers.enable(['setTimeout']);
 
   const otherListener = () => {};
