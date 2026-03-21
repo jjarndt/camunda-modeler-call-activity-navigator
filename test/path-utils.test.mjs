@@ -1,76 +1,122 @@
-import test from 'node:test';
+import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { getPathSeparator, normalizePath } from '../client/path-utils.mjs';
 
-test('getPathSeparator detects windows paths', () => {
-  assert.equal(getPathSeparator('C:\\Users\\me\\file.bpmn'), '\\');
-  assert.equal(getPathSeparator('/Users/me/file.bpmn'), '/');
+describe('getPathSeparator', () => {
+  test('returns backslash for windows drive paths', () => {
+    assert.equal(getPathSeparator('C:\\Users\\me\\file.bpmn'), '\\');
+  });
+
+  test('returns forward slash for posix paths', () => {
+    assert.equal(getPathSeparator('/Users/me/file.bpmn'), '/');
+  });
+
+  test('detects backslash even in mixed-separator paths', () => {
+    assert.equal(getPathSeparator('C:\\Users/mixed/path'), '\\');
+  });
+
+  test('defaults to forward slash for empty string', () => {
+    assert.equal(getPathSeparator(''), '/');
+  });
+
+  test('defaults to forward slash for null', () => {
+    assert.equal(getPathSeparator(null), '/');
+  });
+
+  test('defaults to forward slash for undefined', () => {
+    assert.equal(getPathSeparator(undefined), '/');
+  });
 });
 
-test('normalizePath handles posix absolute paths', () => {
-  assert.equal(normalizePath('/a/b/../c', '/'), '/a/c');
-  assert.equal(normalizePath('/a/./b//c', '/'), '/a/b/c');
-});
+describe('normalizePath', () => {
+  describe('posix', () => {
+    test('resolves parent traversal in absolute path', () => {
+      assert.equal(normalizePath('/a/b/../c', '/'), '/a/c');
+    });
 
-test('normalizePath handles posix relative paths', () => {
-  assert.equal(normalizePath('a/b/../c', '/'), 'a/c');
-});
+    test('removes current-dir dots and double slashes', () => {
+      assert.equal(normalizePath('/a/./b//c', '/'), '/a/b/c');
+    });
 
-test('normalizePath handles windows drive paths', () => {
-  assert.equal(normalizePath('C:\\a\\b\\..\\c', '\\'), 'C:\\a\\c');
-  assert.equal(normalizePath('C:\\', '\\'), 'C:\\');
-  assert.equal(normalizePath('C:\\a\\..\\..\\b', '\\'), 'C:\\b');
-});
+    test('resolves parent traversal in relative path', () => {
+      assert.equal(normalizePath('a/b/../c', '/'), 'a/c');
+    });
 
-test('normalizePath handles UNC paths', () => {
-  assert.equal(normalizePath('\\\\server\\share\\a\\..\\b', '\\'), '\\\\server\\share\\b');
-});
+    test('collapses double separators', () => {
+      assert.equal(normalizePath('/a//b//c', '/'), '/a/b/c');
+    });
 
-test('getPathSeparator returns / for empty/null/undefined input', () => {
-  assert.equal(getPathSeparator(''), '/');
-  assert.equal(getPathSeparator(null), '/');
-  assert.equal(getPathSeparator(undefined), '/');
-});
+    test('strips trailing separator', () => {
+      assert.equal(normalizePath('/a/b/', '/'), '/a/b');
+    });
 
-test('normalizePath returns null/undefined unchanged for falsy input', () => {
-  assert.equal(normalizePath(null, '/'), null);
-  assert.equal(normalizePath(undefined, '/'), undefined);
-  assert.equal(normalizePath('', '/'), '');
-});
+    test('removes current-dir dots throughout the path', () => {
+      assert.equal(normalizePath('/a/./b/./c', '/'), '/a/b/c');
+    });
 
-test('normalizePath handles double separators', () => {
-  assert.equal(normalizePath('/a//b//c', '/'), '/a/b/c');
-  assert.equal(normalizePath('C:\\a\\\\b\\\\c', '\\'), 'C:\\a\\b\\c');
-});
+    test('reduces a single current-dir dot to empty string', () => {
+      assert.equal(normalizePath('.', '/'), '');
+    });
 
-test('normalizePath handles trailing separator', () => {
-  assert.equal(normalizePath('/a/b/', '/'), '/a/b');
-  assert.equal(normalizePath('C:\\a\\b\\', '\\'), 'C:\\a\\b');
-});
+    test('resolves relative parent traversal to sibling', () => {
+      assert.equal(normalizePath('a/b/../../c', '/'), 'c');
+    });
 
-test('normalizePath handles current-dir dots', () => {
-  assert.equal(normalizePath('/a/./b/./c', '/'), '/a/b/c');
-  assert.equal(normalizePath('C:\\a\\.\\b\\.\\c', '\\'), 'C:\\a\\b\\c');
-});
+    test('preserves leading .. when traversal exceeds relative depth', () => {
+      assert.equal(normalizePath('a/../..', '/'), '..');
+    });
 
-test('normalizePath auto-detects backslash separator when no preferredSep given', () => {
-  assert.equal(normalizePath('C:\\a\\b\\..\\c'), 'C:\\a\\c');
-});
+    test('clamps parent traversal at root', () => {
+      assert.equal(normalizePath('/a/b/../../../c', '/'), '/c');
+    });
+  });
 
-test('normalizePath with only current-dir dot returns empty for posix', () => {
-  assert.equal(normalizePath('.', '/'), '');
-});
+  describe('windows', () => {
+    test('resolves parent traversal in drive path', () => {
+      assert.equal(normalizePath('C:\\a\\b\\..\\c', '\\'), 'C:\\a\\c');
+    });
 
-test('normalizePath handles relative parent traversal', () => {
-  assert.equal(normalizePath('a/b/../../c', '/'), 'c');
-  assert.equal(normalizePath('a/../..', '/'), '..');
-});
+    test('preserves bare drive root', () => {
+      assert.equal(normalizePath('C:\\', '\\'), 'C:\\');
+    });
 
-test('normalizePath handles deeply nested parent traversal at root', () => {
-  assert.equal(normalizePath('/a/b/../../../c', '/'), '/c');
-});
+    test('clamps parent traversal at drive root', () => {
+      assert.equal(normalizePath('C:\\a\\..\\..\\b', '\\'), 'C:\\b');
+    });
 
-test('getPathSeparator detects backslash even in mixed paths', () => {
-  assert.equal(getPathSeparator('C:\\Users/mixed/path'), '\\');
+    test('resolves parent traversal in UNC path', () => {
+      assert.equal(normalizePath('\\\\server\\share\\a\\..\\b', '\\'), '\\\\server\\share\\b');
+    });
+
+    test('collapses double backslashes in drive path', () => {
+      assert.equal(normalizePath('C:\\a\\\\b\\\\c', '\\'), 'C:\\a\\b\\c');
+    });
+
+    test('strips trailing backslash', () => {
+      assert.equal(normalizePath('C:\\a\\b\\', '\\'), 'C:\\a\\b');
+    });
+
+    test('removes current-dir dots throughout the path', () => {
+      assert.equal(normalizePath('C:\\a\\.\\b\\.\\c', '\\'), 'C:\\a\\b\\c');
+    });
+
+    test('auto-detects backslash separator when none is provided', () => {
+      assert.equal(normalizePath('C:\\a\\b\\..\\c'), 'C:\\a\\c');
+    });
+  });
+
+  describe('edge cases', () => {
+    test('returns null unchanged', () => {
+      assert.equal(normalizePath(null, '/'), null);
+    });
+
+    test('returns undefined unchanged', () => {
+      assert.equal(normalizePath(undefined, '/'), undefined);
+    });
+
+    test('returns empty string unchanged', () => {
+      assert.equal(normalizePath('', '/'), '');
+    });
+  });
 });

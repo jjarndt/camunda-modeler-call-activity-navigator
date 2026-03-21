@@ -1,126 +1,129 @@
-import test from 'node:test';
+import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { getCalledProcessId, isCallActivity } from '../client/bpmn-extension/util.mjs';
 
-// --- isCallActivity ---
+describe('isCallActivity', () => {
 
-test('isCallActivity returns true for bpmn:CallActivity', () => {
-  assert.equal(isCallActivity({ type: 'bpmn:CallActivity' }), true);
+  test('returns true for bpmn:CallActivity', () => {
+    assert.equal(isCallActivity({ type: 'bpmn:CallActivity' }), true);
+  });
+
+  test('returns false for other element types', () => {
+    assert.equal(isCallActivity({ type: 'bpmn:ServiceTask' }), false);
+    assert.equal(isCallActivity({ type: 'bpmn:UserTask' }), false);
+    assert.equal(isCallActivity({ type: 'bpmn:StartEvent' }), false);
+  });
+
+  test('returns false when type is missing or undefined', () => {
+    assert.equal(isCallActivity({}), false);
+    assert.equal(isCallActivity({ type: undefined }), false);
+  });
 });
 
-test('isCallActivity returns false for other types', () => {
-  assert.equal(isCallActivity({ type: 'bpmn:ServiceTask' }), false);
-  assert.equal(isCallActivity({ type: 'bpmn:UserTask' }), false);
-  assert.equal(isCallActivity({ type: 'bpmn:StartEvent' }), false);
-});
+describe('getCalledProcessId', () => {
 
-// --- getCalledProcessId: Camunda 7 ---
+  describe('Camunda 7', () => {
 
-test('getCalledProcessId returns calledElement for Camunda 7', () => {
-  const element = {
-    businessObject: {
-      get: (attr) => attr === 'calledElement' ? 'MyProcess' : undefined
-    }
-  };
-  assert.equal(getCalledProcessId(element), 'MyProcess');
-});
-
-// --- getCalledProcessId: Camunda 8 (Zeebe) ---
-
-test('getCalledProcessId returns processId from zeebe:CalledElement', () => {
-  const element = {
-    businessObject: {
-      get: (attr) => {
-        if (attr === 'extensionElements') {
-          return {
-            get: () => [
-              { $type: 'zeebe:CalledElement', get: (a) => a === 'processId' ? 'ZeebeProcess' : null }
-            ]
-          };
+    test('returns calledElement attribute', () => {
+      const element = {
+        businessObject: {
+          get: (attr) => attr === 'calledElement' ? 'MyProcess' : undefined
         }
-        return undefined;
-      }
-    }
-  };
-  assert.equal(getCalledProcessId(element), 'ZeebeProcess');
-});
+      };
+      assert.equal(getCalledProcessId(element), 'MyProcess');
+    });
+  });
 
-// --- getCalledProcessId: no process ID ---
+  describe('Camunda 8 (Zeebe)', () => {
 
-test('getCalledProcessId returns null when no calledElement or zeebe extension', () => {
-  const element = {
-    businessObject: {
-      get: () => undefined
-    }
-  };
-  assert.equal(getCalledProcessId(element), null);
-});
-
-test('getCalledProcessId returns null for empty extension elements', () => {
-  const element = {
-    businessObject: {
-      get: (attr) => {
-        if (attr === 'extensionElements') {
-          return { get: () => [] };
+    test('returns processId from zeebe:CalledElement extension', () => {
+      const element = {
+        businessObject: {
+          get: (attr) => {
+            if (attr === 'extensionElements') {
+              return {
+                get: () => [
+                  { $type: 'zeebe:CalledElement', get: (a) => a === 'processId' ? 'ZeebeProcess' : null }
+                ]
+              };
+            }
+            return undefined;
+          }
         }
-        return undefined;
-      }
-    }
-  };
-  assert.equal(getCalledProcessId(element), null);
-});
+      };
+      assert.equal(getCalledProcessId(element), 'ZeebeProcess');
+    });
 
-test('getCalledProcessId uses element directly when no businessObject', () => {
-  const element = {
-    get: (attr) => attr === 'calledElement' ? 'DirectProcess' : undefined
-  };
-  assert.equal(getCalledProcessId(element), 'DirectProcess');
-});
-
-test('getCalledProcessId prefers zeebe extension over calledElement', () => {
-  const element = {
-    businessObject: {
-      get: (attr) => {
-        if (attr === 'extensionElements') {
-          return {
-            get: () => [
-              { $type: 'zeebe:CalledElement', get: (a) => a === 'processId' ? 'ZeebeWins' : null }
-            ]
-          };
+    test('returns null when zeebe:CalledElement has no processId', () => {
+      const element = {
+        businessObject: {
+          get: (attr) => {
+            if (attr === 'extensionElements') {
+              return {
+                get: () => [
+                  { $type: 'zeebe:CalledElement', get: () => null }
+                ]
+              };
+            }
+            if (attr === 'calledElement') return undefined;
+            return undefined;
+          }
         }
-        if (attr === 'calledElement') return 'C7Fallback';
-        return undefined;
-      }
-    }
-  };
-  assert.equal(getCalledProcessId(element), 'ZeebeWins');
-});
+      };
+      assert.equal(getCalledProcessId(element), null);
+    });
 
-// --- isCallActivity: undefined type ---
-
-test('isCallActivity returns false for undefined type', () => {
-  assert.equal(isCallActivity({}), false);
-  assert.equal(isCallActivity({ type: undefined }), false);
-});
-
-// --- getCalledProcessId: zeebe CalledElement without processId ---
-
-test('getCalledProcessId returns null when zeebe CalledElement has no processId', () => {
-  const element = {
-    businessObject: {
-      get: (attr) => {
-        if (attr === 'extensionElements') {
-          return {
-            get: () => [
-              { $type: 'zeebe:CalledElement', get: () => null }
-            ]
-          };
+    test('prefers zeebe extension over calledElement', () => {
+      const element = {
+        businessObject: {
+          get: (attr) => {
+            if (attr === 'extensionElements') {
+              return {
+                get: () => [
+                  { $type: 'zeebe:CalledElement', get: (a) => a === 'processId' ? 'ZeebeWins' : null }
+                ]
+              };
+            }
+            if (attr === 'calledElement') return 'C7Fallback';
+            return undefined;
+          }
         }
-        if (attr === 'calledElement') return undefined;
-        return undefined;
-      }
-    }
-  };
-  assert.equal(getCalledProcessId(element), null);
+      };
+      assert.equal(getCalledProcessId(element), 'ZeebeWins');
+    });
+  });
+
+  describe('edge cases', () => {
+
+    test('returns null when neither calledElement nor zeebe extension exists', () => {
+      const element = {
+        businessObject: {
+          get: () => undefined
+        }
+      };
+      assert.equal(getCalledProcessId(element), null);
+    });
+
+    test('returns null when extensionElements values are empty', () => {
+      const element = {
+        businessObject: {
+          get: (attr) => {
+            if (attr === 'extensionElements') {
+              return { get: () => [] };
+            }
+            return undefined;
+          }
+        }
+      };
+      assert.equal(getCalledProcessId(element), null);
+    });
+
+    test('falls back to element itself when businessObject is absent', () => {
+      const element = {
+        get: (attr) => attr === 'calledElement' ? 'DirectProcess' : undefined
+      };
+      assert.equal(getCalledProcessId(element), 'DirectProcess');
+    });
+  });
 });

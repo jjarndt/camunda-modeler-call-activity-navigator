@@ -4,23 +4,23 @@ import assert from 'node:assert/strict';
 import { NavigatorSearch } from '../client/navigator-search.mjs';
 import { ProcessIndex } from '../client/process-index.mjs';
 
-describe('NavigatorSearch.indexFile concurrency', () => {
+function createMockFS(files) {
+  return {
+    readFile: async (path) => {
+      if (files.has(path)) return { contents: files.get(path) };
+      throw new Error('File not found');
+    }
+  };
+}
 
-  it('multiple concurrent indexFile calls all complete correctly', async () => {
-    const files = {
-      '/a.bpmn': '<bpmn:process id="ProcA">',
-      '/b.bpmn': '<bpmn:process id="ProcB">',
-      '/c.bpmn': '<bpmn:process id="ProcC">'
-    };
+describe('NavigatorSearch - concurrent indexing', () => {
 
-    const fileSystem = {
-      readFile: async (path) => {
-        if (files[path]) {
-          return { contents: files[path] };
-        }
-        throw new Error('file not found');
-      }
-    };
+  it('should index all files when multiple indexFile calls run concurrently', async () => {
+    const fileSystem = createMockFS(new Map([
+      ['/a.bpmn', '<bpmn:process id="ProcA">'],
+      ['/b.bpmn', '<bpmn:process id="ProcB">'],
+      ['/c.bpmn', '<bpmn:process id="ProcC">']
+    ]));
 
     const search = new NavigatorSearch({
       fileSystem,
