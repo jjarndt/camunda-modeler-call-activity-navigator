@@ -3,12 +3,9 @@ import assert from 'node:assert/strict';
 
 import { waitForFileDiscovery } from '../client/file-discovery.mjs';
 
-const nodeMajor = parseInt(process.versions.node.split('.')[0], 10);
-const skipMockTimers = nodeMajor < 20 ? 'Mock timers unreliable on Node < 20' : false;
-
 describe('waitForFileDiscovery', () => {
 
-  test('resolves after the 500ms initial timeout when no events fire', { skip: skipMockTimers }, async (t) => {
+  test('resolves after the 500ms initial timeout when no events fire', async (t) => {
     t.mock.timers.enable(['setTimeout']);
 
     const listeners = [];
@@ -27,7 +24,7 @@ describe('waitForFileDiscovery', () => {
     assert.equal(listeners.length, 0, 'should clean up listener');
   });
 
-  test('resolves 200ms after a single event (debounce)', { skip: skipMockTimers }, async (t) => {
+  test('resolves 200ms after a single event (debounce)', async (t) => {
     t.mock.timers.enable(['setTimeout']);
 
     const listeners = [];
@@ -50,7 +47,7 @@ describe('waitForFileDiscovery', () => {
     assert.equal(listeners.length, 0, 'should clean up listener');
   });
 
-  test('resets the debounce timer on each subsequent event', { skip: skipMockTimers }, async (t) => {
+  test('resets the debounce timer on each subsequent event', async (t) => {
     t.mock.timers.enable(['setTimeout']);
 
     const listeners = [];
@@ -78,7 +75,7 @@ describe('waitForFileDiscovery', () => {
     assert.equal(resolved, true, 'should resolve 200ms after last event');
   });
 
-  test('enforces the 5s max timeout even with continuous events', { skip: skipMockTimers }, async (t) => {
+  test('enforces the 5s max timeout even with continuous events', async (t) => {
     t.mock.timers.enable(['setTimeout']);
 
     const listeners = [];
@@ -101,7 +98,7 @@ describe('waitForFileDiscovery', () => {
     assert.equal(listeners.length, 0, 'should clean up listener');
   });
 
-  test('removes its listener from the array after resolution', { skip: skipMockTimers }, async (t) => {
+  test('removes its listener from the array after resolution', async (t) => {
     t.mock.timers.enable(['setTimeout']);
 
     const listeners = [];
@@ -115,7 +112,7 @@ describe('waitForFileDiscovery', () => {
     assert.equal(listeners.length, 0, 'listener array should be empty after resolution');
   });
 
-  test('preserves pre-existing listeners in the array', { skip: skipMockTimers }, async (t) => {
+  test('preserves pre-existing listeners in the array', async (t) => {
     t.mock.timers.enable(['setTimeout']);
 
     const otherListener = () => {};

@@ -21,7 +21,7 @@
   },
   "homepage": "https://github.com/jjarndt/camunda-modeler-call-activity-navigator#readme",
   "engines": {
-    "node": ">=18"
+    "node": ">=20"
   },
   "scripts": {
     "build": "webpack --mode production",
