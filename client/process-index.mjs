@@ -1,3 +1,5 @@
+import { normalizePath } from './path-utils.mjs';
+
 export class ProcessIndex {
   constructor() {
     this._locationsByProcess = new Map(); // processId -> Array<{ path: string }>
@@ -5,14 +7,15 @@ export class ProcessIndex {
   }
 
   isIndexed(filePath) {
-    return this._processesByFile.has(filePath);
+    return this._processesByFile.has(normalizePath(filePath, '/'));
   }
 
   getLocations(processId) {
-    return this._locationsByProcess.get(processId) || [];
+    return [...(this._locationsByProcess.get(processId) || [])];
   }
 
   setFileIndex(filePath, processIds) {
+    filePath = normalizePath(filePath, '/');
     this.removeFile(filePath);
 
     const uniqueProcessIds = new Set(processIds || []);
@@ -27,6 +30,7 @@ export class ProcessIndex {
   }
 
   removeFile(filePath) {
+    filePath = normalizePath(filePath, '/');
     const processIds = this._processesByFile.get(filePath);
     if (!processIds) return;
 

@@ -1,4 +1,5 @@
 import { extractProcessIds } from './bpmn-parser.mjs';
+import { normalizePath } from './path-utils.mjs';
 
 function parentDir(filePath) {
   return filePath.split(/[/\\]/).slice(0, -1).join('/');
@@ -57,16 +58,22 @@ export class NavigatorSearch {
   }
 
   async searchInKnownFiles(processId, currentFilePath, knownFiles) {
-    for (const filePath of knownFiles) {
-      if (filePath === currentFilePath) continue;
+    const normalizedCurrent = normalizePath(currentFilePath, '/');
+
+    for (const filePath of (knownFiles ?? [])) {
+      if (normalizePath(filePath, '/') === normalizedCurrent) continue;
 
       if (!this.isFileIndexed(filePath)) {
         await this.indexFile(filePath);
       }
     }
 
-    const locations = this.getLocations(processId);
-    if (locations?.length > 0) {
+    const allLocations = this.getLocations(processId);
+    const locations = normalizedCurrent
+      ? allLocations.filter(loc => loc.path !== normalizedCurrent)
+      : allLocations;
+
+    if (locations.length > 0) {
       return this.findBestMatch(locations, currentFilePath).path;
     }
 
@@ -74,6 +81,7 @@ export class NavigatorSearch {
   }
 
   findBestMatch(locations, currentFilePath) {
+    if (!locations.length) return null;
     if (locations.length === 1 || !currentFilePath) {
       return locations[0];
     }
