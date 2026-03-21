@@ -1,20 +1,23 @@
-import test from 'node:test';
+import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { ProcessIndex } from '../client/process-index.mjs';
 
-test('setFileIndex with undefined processIds marks file as indexed with no processes', () => {
-  const index = new ProcessIndex();
+describe('ProcessIndex - undefined processIds', () => {
 
-  // explicit undefined
-  index.setFileIndex('/a.bpmn', undefined);
+  it('setFileIndex with undefined processIds marks file as indexed with no processes', () => {
+    const index = new ProcessIndex();
 
-  assert.equal(index.isIndexed('/a.bpmn'), true);
-  assert.deepEqual(index.getLocations('anyProcess'), []);
+    // explicit undefined
+    index.setFileIndex('/a.bpmn', undefined);
 
-  // missing second argument (implicit undefined)
-  index.setFileIndex('/b.bpmn');
+    assert.equal(index.isIndexed('/a.bpmn'), true);
+    assert.deepEqual(index.getLocations('anyProcess'), []);
 
-  assert.equal(index.isIndexed('/b.bpmn'), true);
-  assert.deepEqual(index.getLocations('anyProcess'), []);
+    // missing second argument (implicit undefined)
+    index.setFileIndex('/b.bpmn');
+
+    assert.equal(index.isIndexed('/b.bpmn'), true);
+    assert.deepEqual(index.getLocations('anyProcess'), []);
+  });
 });
