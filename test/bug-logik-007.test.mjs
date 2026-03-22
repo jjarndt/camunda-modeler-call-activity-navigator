@@ -16,7 +16,10 @@ describe('BUG-LOGIK-007: findBestMatch with empty-string path anomaly', () => {
 
   it('should prefer a file in a nearby directory over a file with empty path', () => {
     // Setup: two locations, one has an empty path (degenerate), one is close
-    const search = new NavigatorSearch({ fileSystem: null, index: null });
+    const search = new NavigatorSearch({
+      fileSystem: { readFile: async () => ({ contents: '' }) },
+      index: { isIndexed: () => false, getLocations: () => [], setFileIndex: () => {}, removeFile: () => {} }
+    });
 
     const locations = [
       { path: '' },                         // empty/degenerate

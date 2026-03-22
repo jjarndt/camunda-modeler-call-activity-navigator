@@ -12,19 +12,6 @@ function stripComments(str) {
     if (!noMoreComments && str[idx + 2] === '-' && str[idx + 3] === '-') {
       let end = str.indexOf('-->', idx + 4);
       if (end !== -1) {
-        // If nested <!-- found, greedily extend to the last --> that closes nesting
-        const firstNested = str.indexOf('<!--', idx + 4);
-        if (firstNested !== -1 && firstNested < end) {
-          let lastEnd = end;
-          let scan = end + 3;
-          while (scan < str.length) {
-            const next = str.indexOf('-->', scan);
-            if (next === -1) break;
-            lastEnd = next;
-            scan = next + 3;
-          }
-          end = lastEnd;
-        }
         chunks.push(str.slice(pos, idx));
         pos = end + 3;
         searchFrom = pos;

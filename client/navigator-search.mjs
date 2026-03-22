@@ -21,10 +21,22 @@ function commonPrefixLength(dirA, dirB) {
   return count;
 }
 
+function isValidPath(filePath) {
+  return filePath && typeof filePath === 'string' && filePath.trim() !== '';
+}
+
+function pathsEqualIgnoreCase(a, b) {
+  if (!a || !b) return false;
+  return a.toLowerCase() === b.toLowerCase();
+}
+
 export class NavigatorSearch {
   constructor({ fileSystem, index }) {
+    if (!fileSystem) throw new TypeError('fileSystem is required');
+    if (!index) throw new TypeError('index is required');
     this._fileSystem = fileSystem;
     this._index = index;
+    this._indexingPromises = new Map();
   }
 
   isFileIndexed(filePath) {
@@ -40,6 +52,22 @@ export class NavigatorSearch {
   }
 
   async indexFile(filePath) {
+    if (!isValidPath(filePath)) return;
+
+    const normalized = normalizePath(filePath, '/');
+    const existing = this._indexingPromises.get(normalized);
+    if (existing) return existing;
+
+    const promise = this._doIndexFile(filePath);
+    this._indexingPromises.set(normalized, promise);
+    try {
+      await promise;
+    } finally {
+      this._indexingPromises.delete(normalized);
+    }
+  }
+
+  async _doIndexFile(filePath) {
     try {
       const file = await this._fileSystem.readFile(filePath);
       const processIds = extractProcessIds(file?.contents || '');
@@ -52,6 +80,7 @@ export class NavigatorSearch {
   }
 
   async getProcessIdsFromFile(filePath) {
+    if (!isValidPath(filePath)) return [];
     try {
       const file = await this._fileSystem.readFile(filePath);
       return extractProcessIds(file?.contents || '');
@@ -66,7 +95,7 @@ export class NavigatorSearch {
     const currentDir = parentDir(normalizedCurrent);
 
     const candidates = [...(knownFiles ?? [])]
-      .filter(f => normalizePath(f, '/') !== normalizedCurrent)
+      .filter(f => isValidPath(f) && !pathsEqualIgnoreCase(normalizePath(f, '/'), normalizedCurrent))
       .sort((a, b) => {
         const dirA = parentDir(normalizePath(a, '/'));
         const dirB = parentDir(normalizePath(b, '/'));
@@ -78,17 +107,20 @@ export class NavigatorSearch {
         await this.indexFile(filePath);
       }
 
+      // Only break if THIS candidate has the process (not a pre-indexed distant file)
+      const normalizedFilePath = normalizePath(filePath, '/');
       const found = this.getLocations(processId);
-      if (found.some(loc => loc.path !== normalizedCurrent)) break;
+      if (found.some(loc => loc.path === normalizedFilePath)) break;
     }
 
     const allLocations = this.getLocations(processId);
     const locations = normalizedCurrent
-      ? allLocations.filter(loc => loc.path !== normalizedCurrent)
+      ? allLocations.filter(loc => !pathsEqualIgnoreCase(loc.path, normalizedCurrent))
       : allLocations;
 
     if (locations.length > 0) {
-      return this.findBestMatch(locations, currentFilePath).path;
+      const match = this.findBestMatch(locations, normalizedCurrent);
+      return match ? match.path : null;
     }
 
     return null;
@@ -101,7 +133,7 @@ export class NavigatorSearch {
       return valid[0];
     }
 
-    const currentDir = parentDir(currentFilePath);
+    const currentDir = parentDir(normalizePath(currentFilePath, '/'));
     let bestMatch = valid[0];
     let bestScore = -1;
 
@@ -111,6 +143,12 @@ export class NavigatorSearch {
       if (score > bestScore) {
         bestScore = score;
         bestMatch = location;
+      } else if (score === bestScore) {
+        const locDepth = parentDir(location.path).split('/').filter(Boolean).length;
+        const bestDepth = parentDir(bestMatch.path).split('/').filter(Boolean).length;
+        if (locDepth < bestDepth || (locDepth === bestDepth && location.path < bestMatch.path)) {
+          bestMatch = location;
+        }
       }
     }
 

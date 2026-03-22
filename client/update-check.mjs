@@ -9,7 +9,7 @@ const NO_UPDATE = Object.freeze({ available: false });
 
 function cleanVersion(version) {
   if (!version || typeof version !== 'string') return '';
-  return version.replace(/^v/, '').replace(/[-+].*$/, '');
+  return version.replace(/^v/i, '').replace(/[-+].*$/, '');
 }
 
 function hasPreRelease(version) {
@@ -19,14 +19,15 @@ function hasPreRelease(version) {
 }
 
 function isValidVersionStr(str) {
-  return /^\d+(\.\d+){0,2}$/.test(str);
+  return /^\d{1,10}(\.\d{1,10}){0,2}$/.test(str);
 }
 
-function isSafeUrl(url) {
+export function isSafeUrl(url) {
   try {
-    const { protocol, hostname } = new URL(url);
-    return protocol === 'https:' &&
-      (hostname === 'github.com' || hostname.endsWith('.github.com'));
+    const parsed = new URL(url);
+    return parsed.protocol === 'https:' &&
+      (parsed.hostname === 'github.com' || parsed.hostname.endsWith('.github.com')) &&
+      !parsed.username && !parsed.password;
   } catch {
     return false;
   }

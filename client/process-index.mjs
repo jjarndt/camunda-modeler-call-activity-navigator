@@ -19,7 +19,7 @@ export class ProcessIndex {
     if (!filePath || !filePath.trim()) return;
     this.removeFile(filePath);
 
-    const uniqueProcessIds = new Set((processIds || []).filter(Boolean));
+    const uniqueProcessIds = new Set((Array.isArray(processIds) ? processIds : []).filter(Boolean));
 
     for (const processId of uniqueProcessIds) {
       const existing = this._locationsByProcess.get(processId) || [];

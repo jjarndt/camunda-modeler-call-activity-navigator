@@ -12,7 +12,7 @@ import { checkForUpdate } from './update-check.mjs';
 
 const VALID_PROCESS_ID = /^[a-zA-Z0-9_\-.:]+$/;
 const UPDATE_CHECK_DELAY_MS = 30_000;
-const BPMN_ROOT_PATTERN = /(.*[\\/]?(?:processes|bpmn))[\\/]/;
+const BPMN_ROOT_PATTERN = /^((?:[^\\/]*[\\/])*(?:processes|bpmn))[\\/]/;
 
 function isFileRemoval(item) {
   return item.type === 'removed' ||
@@ -208,7 +208,8 @@ class CallActivityNavigatorPlugin extends PureComponent {
 
     const locations = this._search.getLocations(processId);
     if (locations?.length > 0) {
-      return this._search.findBestMatch(locations, currentFilePath).path;
+      const match = this._search.findBestMatch(locations, currentFilePath);
+      return match ? match.path : null;
     }
 
     return null;

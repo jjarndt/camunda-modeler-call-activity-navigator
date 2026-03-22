@@ -5,17 +5,14 @@ import { ProcessIndex } from '../client/process-index.mjs';
 
 describe('Bug API-010: indexFile re-throws TypeErrors instead of swallowing them', () => {
 
-  it('throws TypeError when fileSystem is undefined', async () => {
+  it('throws TypeError when fileSystem is undefined', () => {
     const index = new ProcessIndex();
-    const search = new NavigatorSearch({ index });
 
-    await assert.rejects(
-      () => search.indexFile('/foo.bpmn'),
-      TypeError
+    assert.throws(
+      () => new NavigatorSearch({ index }),
+      TypeError,
+      'Constructor must reject undefined fileSystem'
     );
-
-    assert.strictEqual(search.isFileIndexed('/foo.bpmn'), false,
-      'File must not be marked as indexed after a TypeError');
   });
 
   it('still handles normal I/O errors gracefully', async () => {
