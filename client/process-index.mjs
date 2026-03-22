@@ -11,7 +11,9 @@ export class ProcessIndex {
   }
 
   getLocations(processId) {
-    return (this._locationsByProcess.get(processId) || []).map(loc => ({ ...loc }));
+    const key = (processId != null && typeof processId !== 'string') ? String(processId) :
+      (typeof processId === 'string' ? processId.trim() : processId);
+    return (this._locationsByProcess.get(key) || []).map(loc => ({ ...loc }));
   }
 
   setFileIndex(filePath, processIds) {
@@ -19,7 +21,12 @@ export class ProcessIndex {
     if (!filePath || !filePath.trim()) return;
     this.removeFile(filePath);
 
-    const uniqueProcessIds = new Set((Array.isArray(processIds) ? processIds : []).filter(Boolean));
+    const uniqueProcessIds = new Set(
+      (Array.isArray(processIds) ? processIds : [])
+        .filter(Boolean)
+        .map(id => typeof id === 'string' ? id.trim() : String(id))
+        .filter(Boolean)
+    );
 
     for (const processId of uniqueProcessIds) {
       const existing = this._locationsByProcess.get(processId) || [];

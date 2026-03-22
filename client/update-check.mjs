@@ -2,6 +2,8 @@ import { debug } from './log.mjs';
 
 const RELEASES_URL =
   'https://api.github.com/repos/jjarndt/camunda-modeler-call-activity-navigator/releases/latest';
+const RELEASES_PAGE_URL =
+  'https://github.com/jjarndt/camunda-modeler-call-activity-navigator/releases/latest';
 const THROTTLE_KEY = 'callActivityNavigator.lastUpdateCheck';
 const ONE_DAY_MS  = 24 * 60 * 60 * 1000;
 
@@ -14,8 +16,15 @@ function cleanVersion(version) {
 
 function hasPreRelease(version) {
   if (!version || typeof version !== 'string') return false;
-  const withoutV = version.replace(/^v/, '');
+  const withoutV = version.replace(/^v/i, '');
   return /-/.test(withoutV);
+}
+
+function extractPreRelease(version) {
+  if (!version || typeof version !== 'string') return '';
+  const withoutV = version.replace(/^v/i, '');
+  const dashIdx = withoutV.indexOf('-');
+  return dashIdx >= 0 ? withoutV.slice(dashIdx + 1).replace(/\+.*$/, '') : '';
 }
 
 function isValidVersionStr(str) {
@@ -52,6 +61,13 @@ export function isNewerVersion(current, latest) {
   // Same version numbers: pre-release < stable
   if (hasPreRelease(current) && !hasPreRelease(latest)) return true;
 
+  // Both pre-release with same version: compare suffixes lexicographically
+  if (hasPreRelease(current) && hasPreRelease(latest)) {
+    const cSuffix = extractPreRelease(current);
+    const lSuffix = extractPreRelease(latest);
+    return lSuffix > cSuffix;
+  }
+
   return false;
 }
 
@@ -63,8 +79,6 @@ export async function checkForUpdate(currentVersion) {
       return NO_UPDATE;
     }
 
-    localStorage.setItem(THROTTLE_KEY, String(Date.now()));
-
     const response = await fetch(RELEASES_URL, {
       signal: AbortSignal.timeout(10_000)
     });
@@ -73,6 +87,8 @@ export async function checkForUpdate(currentVersion) {
       return NO_UPDATE;
     }
 
+    localStorage.setItem(THROTTLE_KEY, String(Date.now()));
+
     const data = await response.json();
     const latestVersion = (data.tag_name || '').replace(/^v/, '');
 
@@ -80,7 +96,7 @@ export async function checkForUpdate(currentVersion) {
       return NO_UPDATE;
     }
 
-    const url = isSafeUrl(data.html_url) ? data.html_url : RELEASES_URL;
+    const url = isSafeUrl(data.html_url) ? data.html_url : RELEASES_PAGE_URL;
     return { available: true, latest: latestVersion, url };
   } catch (error) {
     debug('update check failed:', error);

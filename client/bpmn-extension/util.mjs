@@ -11,10 +11,12 @@ function getZeebeProcessId(businessObject) {
   if (!Array.isArray(values)) return null;
 
   const zeebeCalledElement = values.find(
-    ext => ext.$type === 'zeebe:CalledElement'
+    ext => ext?.$type === 'zeebe:CalledElement'
   );
 
-  return zeebeCalledElement ? safeGet(zeebeCalledElement, 'processId') || null : null;
+  if (!zeebeCalledElement) return null;
+  const processId = safeGet(zeebeCalledElement, 'processId') || null;
+  return processId && processId.trim() ? processId.trim() : null;
 }
 
 export function getCalledProcessId(element) {
@@ -26,9 +28,10 @@ export function getCalledProcessId(element) {
   if (zeebeProcessId) return zeebeProcessId;
 
   // Camunda 7
-  return safeGet(businessObject, 'calledElement') || null;
+  const calledElement = safeGet(businessObject, 'calledElement') || null;
+  return calledElement && calledElement.trim() ? calledElement.trim() : null;
 }
 
 export function isCallActivity(element) {
-  return element?.type === 'bpmn:CallActivity';
+  return element?.type === 'bpmn:CallActivity' || element?.$type === 'bpmn:CallActivity';
 }

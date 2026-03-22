@@ -62,8 +62,8 @@ describe('isNewerVersion', () => {
     assert.equal(isNewerVersion('1.2.3-beta.1', '1.2.4'), true);
   });
 
-  test('ignores pre-release suffix on both sides (compares only numeric parts)', () => {
-    assert.equal(isNewerVersion('1.2.3-rc.1', '1.2.3-rc.2'), false);
+  test('compares pre-release suffixes when both are pre-release with same version', () => {
+    assert.equal(isNewerVersion('1.2.3-rc.1', '1.2.3-rc.2'), true);
   });
 });
 

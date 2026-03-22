@@ -10,7 +10,7 @@ import { waitForFileDiscovery } from './file-discovery.mjs';
 import { debug, error } from './log.mjs';
 import { checkForUpdate } from './update-check.mjs';
 
-const VALID_PROCESS_ID = /^[a-zA-Z0-9_\-.:]+$/;
+const VALID_PROCESS_ID = /^(?!(?:CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])(?:\.|$))[a-zA-Z0-9_\-.]+$/i;
 const UPDATE_CHECK_DELAY_MS = 30_000;
 const BPMN_ROOT_PATTERN = /^((?:[^\\/]*[\\/])*(?:processes|bpmn))[\\/]/;
 

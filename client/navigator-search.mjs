@@ -8,6 +8,10 @@ function parentDir(filePath) {
 function commonPrefixLength(dirA, dirB) {
   if (!dirA || !dirB) return 0;
 
+  const aIsAbsolute = dirA.startsWith('/');
+  const bIsAbsolute = dirB.startsWith('/');
+  if (aIsAbsolute !== bIsAbsolute) return 0;
+
   const partsA = dirA.split('/').filter(Boolean);
   const partsB = dirB.split('/').filter(Boolean);
   const limit = Math.min(partsA.length, partsB.length);
@@ -91,26 +95,32 @@ export class NavigatorSearch {
   }
 
   async searchInKnownFiles(processId, currentFilePath, knownFiles) {
+    if (typeof processId === 'string') processId = processId.trim();
     const normalizedCurrent = normalizePath(currentFilePath, '/');
     const currentDir = parentDir(normalizedCurrent);
 
-    const candidates = [...(knownFiles ?? [])]
+    const files = typeof knownFiles === 'string' ? [knownFiles] : [...(knownFiles ?? [])];
+    const candidates = files
       .filter(f => isValidPath(f) && !pathsEqualIgnoreCase(normalizePath(f, '/'), normalizedCurrent))
-      .sort((a, b) => {
-        const dirA = parentDir(normalizePath(a, '/'));
-        const dirB = parentDir(normalizePath(b, '/'));
-        return commonPrefixLength(currentDir, dirB) - commonPrefixLength(currentDir, dirA);
-      });
+      .map(f => ({ f, dir: parentDir(normalizePath(f, '/')) }))
+      .sort((a, b) => commonPrefixLength(currentDir, b.dir) - commonPrefixLength(currentDir, a.dir))
+      .map(x => x.f);
 
     for (const filePath of candidates) {
+      const normalizedFilePath = normalizePath(filePath, '/');
+
+      // Skip re-indexing if a case-variant is already indexed for this process
+      const existingLocs = this.getLocations(processId);
+      if (existingLocs.some(loc => pathsEqualIgnoreCase(loc.path, normalizedFilePath))) {
+        break;
+      }
+
       if (!this.isFileIndexed(filePath)) {
         await this.indexFile(filePath);
       }
 
-      // Only break if THIS candidate has the process (not a pre-indexed distant file)
-      const normalizedFilePath = normalizePath(filePath, '/');
       const found = this.getLocations(processId);
-      if (found.some(loc => loc.path === normalizedFilePath)) break;
+      if (found.some(loc => pathsEqualIgnoreCase(loc.path, normalizedFilePath))) break;
     }
 
     const allLocations = this.getLocations(processId);
@@ -136,18 +146,22 @@ export class NavigatorSearch {
     const currentDir = parentDir(normalizePath(currentFilePath, '/'));
     let bestMatch = valid[0];
     let bestScore = -1;
+    let bestDir = parentDir(valid[0].path);
 
     for (const location of valid) {
-      const score = commonPrefixLength(currentDir, parentDir(location.path));
+      const dir = parentDir(location.path);
+      const score = commonPrefixLength(currentDir, dir);
 
       if (score > bestScore) {
         bestScore = score;
         bestMatch = location;
+        bestDir = dir;
       } else if (score === bestScore) {
-        const locDepth = parentDir(location.path).split('/').filter(Boolean).length;
-        const bestDepth = parentDir(bestMatch.path).split('/').filter(Boolean).length;
+        const locDepth = dir.split('/').filter(Boolean).length;
+        const bestDepth = bestDir.split('/').filter(Boolean).length;
         if (locDepth < bestDepth || (locDepth === bestDepth && location.path < bestMatch.path)) {
           bestMatch = location;
+          bestDir = dir;
         }
       }
     }

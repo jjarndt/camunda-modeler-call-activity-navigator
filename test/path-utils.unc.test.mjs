@@ -12,7 +12,7 @@ describe('normalizePath UNC paths', () => {
 
     assert.equal(
       normalizePath('\\\\server\\share\\..', '\\'),
-      '\\\\server\\share\\'
+      '\\\\server\\share'
     );
   });
 });

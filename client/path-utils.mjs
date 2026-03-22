@@ -54,24 +54,27 @@ function stripControlChars(str) {
 export function normalizePath(inputPath, preferredSep) {
   if (!inputPath || typeof inputPath !== 'string') return '';
 
-  const cleaned = stripControlChars(inputPath);
-  if (!cleaned) return '';
+  const trimmed = inputPath.trim();
+  if (!trimmed) return '';
 
-  const sep = preferredSep || (cleaned.includes('\\') ? '\\' : '/');
+  const sep = preferredSep || (trimmed.includes('\\') ? '\\' : '/');
   const isWindows = sep === '\\';
 
-  const { root, rest, hasRootSep } = extractRoot(cleaned, isWindows);
+  const { root, rest, hasRootSep } = extractRoot(trimmed, isWindows);
 
   const parts = rest.split(/[\\/]+/);
   const normalized = [];
 
-  for (const part of parts) {
+  for (const rawPart of parts) {
+    const part = stripControlChars(rawPart);
     if (!part || part === '.') continue;
     if (part === '..') {
-      if (normalized.length && normalized[normalized.length - 1] !== '..') {
-        normalized.pop();
-      } else if (!root) {
-        normalized.push('..');
+      if (rawPart === '..') {
+        if (normalized.length && normalized[normalized.length - 1] !== '..') {
+          normalized.pop();
+        } else if (!root) {
+          normalized.push('..');
+        }
       }
       continue;
     }
@@ -81,8 +84,15 @@ export function normalizePath(inputPath, preferredSep) {
   const joined = normalized.join(sep);
 
   if (root && root !== '/') {
-    const normalizedRoot = root.replace(/[\\/]/g, sep);
+    let normalizedRoot = root.replace(/[\\/]/g, sep);
+    if (/^[a-z]:/.test(normalizedRoot)) {
+      normalizedRoot = normalizedRoot[0].toUpperCase() + normalizedRoot.slice(1);
+    }
+    const isUncRoot = root.startsWith('\\\\') || root.startsWith('//');
     if (hasRootSep) {
+      if (!joined && isUncRoot) {
+        return normalizedRoot;
+      }
       return normalizedRoot + (joined ? sep + joined : sep);
     }
     return joined ? normalizedRoot + joined : normalizedRoot;

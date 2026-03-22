@@ -32,7 +32,7 @@ describe('checkForUpdate', () => {
     assert.deepStrictEqual(result, {
       available: true,
       latest: '2.0.0',
-      url: 'https://api.github.com/repos/jjarndt/camunda-modeler-call-activity-navigator/releases/latest'
+      url: 'https://github.com/jjarndt/camunda-modeler-call-activity-navigator/releases/latest'
     });
   });
 });
