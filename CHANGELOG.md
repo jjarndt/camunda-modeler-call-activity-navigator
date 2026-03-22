@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.2] - 2026-03-22
+
+### Fixed
+- BPMN parser: replaced regex with stateful parser that correctly strips XML comments and CDATA sections before extracting process IDs
+- Path utils: guard against non-string inputs and edge cases in normalization and drive letter handling
+- Navigator search: input validation, race condition prevention in concurrent searches, defensive null checks
+- Update check: validate URL before fetch, handle missing/malformed API responses, guard semver parsing
+- File discovery: guard against non-array listeners parameter
+- Process index: defensive checks for undefined file entries
+- Index: fixed BPMN root pattern for top-level directories, serialized concurrent open-process calls, added null guards
+- BPMN extension util: added safeGet helper for safe property access, null-check on element parameter
+
+### Added
+- 65 regression tests covering null-safety, API robustness, logic, data integrity, security, and performance edge cases
+
 ## [1.2.1] - 2026-01-30
 
 ### Added
@@ -63,6 +78,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Automatically indexes all BPMN files in project directories
 - Supports both platform-specific implementations (Camunda 7 and 8)
 
+[1.2.2]: https://github.com/jjarndt/camunda-modeler-call-activity-navigator/releases/tag/v1.2.2
 [1.2.1]: https://github.com/jjarndt/camunda-modeler-call-activity-navigator/releases/tag/v1.2.1
 [1.2.0]: https://github.com/jjarndt/camunda-modeler-call-activity-navigator/releases/tag/v1.2.0
 [1.1.0]: https://github.com/jjarndt/camunda-modeler-call-activity-navigator/releases/tag/v1.1.0
