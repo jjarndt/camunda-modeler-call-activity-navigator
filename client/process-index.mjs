@@ -11,14 +11,15 @@ export class ProcessIndex {
   }
 
   getLocations(processId) {
-    return [...(this._locationsByProcess.get(processId) || [])];
+    return (this._locationsByProcess.get(processId) || []).map(loc => ({ ...loc }));
   }
 
   setFileIndex(filePath, processIds) {
     filePath = normalizePath(filePath, '/');
+    if (!filePath || !filePath.trim()) return;
     this.removeFile(filePath);
 
-    const uniqueProcessIds = new Set(processIds || []);
+    const uniqueProcessIds = new Set((processIds || []).filter(Boolean));
 
     for (const processId of uniqueProcessIds) {
       const existing = this._locationsByProcess.get(processId) || [];

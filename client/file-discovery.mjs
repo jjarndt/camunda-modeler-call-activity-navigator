@@ -8,6 +8,8 @@ function removeListener(listeners, listener) {
 }
 
 export function waitForFileDiscovery(listeners) {
+  if (!Array.isArray(listeners)) return Promise.resolve();
+
   return new Promise((resolve) => {
     let debounceTimer;
     const maxTimer = setTimeout(done, MAX_TIMEOUT_MS);

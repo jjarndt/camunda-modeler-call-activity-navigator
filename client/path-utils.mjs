@@ -1,5 +1,5 @@
 export function getPathSeparator(filePath) {
-  if (!filePath) return '/';
+  if (!filePath || typeof filePath !== 'string') return '/';
   return filePath.includes('\\') ? '\\' : '/';
 }
 
@@ -8,8 +8,11 @@ function startsWithSeparator(str) {
 }
 
 function extractRoot(path, isWindows) {
-  if (isWindows) {
-    return extractWindowsRoot(path);
+  // Always try Windows root detection if input has backslashes or drive letters
+  const hasBackslash = path.includes('\\');
+  if (isWindows || hasBackslash || /^[A-Za-z]:/.test(path)) {
+    const winRoot = extractWindowsRoot(path);
+    if (winRoot.root) return winRoot;
   }
 
   if (path.startsWith('/')) {
@@ -45,7 +48,7 @@ function consumeRootSep(root, rest) {
 }
 
 export function normalizePath(inputPath, preferredSep) {
-  if (!inputPath) return inputPath;
+  if (!inputPath || typeof inputPath !== 'string') return '';
 
   const sep = preferredSep || (inputPath.includes('\\') ? '\\' : '/');
   const isWindows = sep === '\\';
@@ -70,15 +73,21 @@ export function normalizePath(inputPath, preferredSep) {
 
   const joined = normalized.join(sep);
 
-  if (isWindows) {
-    if (root) {
-      if (hasRootSep) {
-        return root + (joined ? sep + joined : sep);
-      }
-      return joined ? root + sep + joined : root;
+  if (root && root !== '/') {
+    const normalizedRoot = root.replace(/[\\/]/g, sep);
+    if (hasRootSep) {
+      return normalizedRoot + (joined ? sep + joined : sep);
     }
-    return joined;
+    return joined ? normalizedRoot + joined : normalizedRoot;
   }
 
-  return root + joined;
+  if (root === '/') {
+    return joined ? '/' + joined : '/';
+  }
+
+  if (isWindows) {
+    return joined || '.';
+  }
+
+  return joined || '.';
 }

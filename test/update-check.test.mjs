@@ -22,7 +22,7 @@ function teardownGlobals() {
   delete globalThis.fetch;
 }
 
-function fakeRelease(tagName, url = 'https://example.com/release') {
+function fakeRelease(tagName, url = 'https://github.com/jjarndt/camunda-modeler-call-activity-navigator/releases/tag/v2.0.0') {
   return {
     ok: true,
     json: async () => ({ tag_name: tagName, html_url: url })
@@ -85,7 +85,7 @@ describe('checkForUpdate', () => {
       assert.deepEqual(result, {
         available: true,
         latest: '2.0.0',
-        url: 'https://example.com/release'
+        url: 'https://github.com/jjarndt/camunda-modeler-call-activity-navigator/releases/tag/v2.0.0'
       });
     });
 

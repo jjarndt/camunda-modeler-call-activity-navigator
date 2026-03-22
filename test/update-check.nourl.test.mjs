@@ -17,7 +17,7 @@ function teardownGlobals() {
 }
 
 describe('checkForUpdate', () => {
-  it('returns undefined url when html_url is missing from response', async (t) => {
+  it('falls back to releases URL when html_url is missing from response', async (t) => {
     setupGlobals({
       fetchResponse: {
         ok: true,
@@ -32,7 +32,7 @@ describe('checkForUpdate', () => {
     assert.deepStrictEqual(result, {
       available: true,
       latest: '2.0.0',
-      url: undefined
+      url: 'https://api.github.com/repos/jjarndt/camunda-modeler-call-activity-navigator/releases/latest'
     });
   });
 });

@@ -12,7 +12,7 @@ import { checkForUpdate } from './update-check.mjs';
 
 const VALID_PROCESS_ID = /^[a-zA-Z0-9_\-.:]+$/;
 const UPDATE_CHECK_DELAY_MS = 30_000;
-const BPMN_ROOT_PATTERN = /(.+[\\/](?:processes|bpmn))[\\/]/;
+const BPMN_ROOT_PATTERN = /(.*[\\/]?(?:processes|bpmn))[\\/]/;
 
 function isFileRemoval(item) {
   return item.type === 'removed' ||
@@ -115,14 +115,18 @@ class CallActivityNavigatorPlugin extends PureComponent {
   }
 
   async _handleOpenProcess(processId) {
-    if (this._searchInProgress) {
-      await this._searchInProgress;
-    }
+    const previous = this._searchInProgress;
+    const current = (async () => {
+      if (previous) await previous;
+      return this._doHandleOpenProcess(processId);
+    })();
+    this._searchInProgress = current;
     try {
-      this._searchInProgress = this._doHandleOpenProcess(processId);
-      await this._searchInProgress;
+      await current;
     } finally {
-      this._searchInProgress = null;
+      if (this._searchInProgress === current) {
+        this._searchInProgress = null;
+      }
     }
   }
 
@@ -189,11 +193,16 @@ class CallActivityNavigatorPlugin extends PureComponent {
 
     await this._discoverRoot(rootDir);
 
+    const normalizedCurrent = normalizePath(currentFilePath, '/');
+
     for (const filePath of this._knownFiles) {
-      if (filePath === currentFilePath) continue;
+      if (normalizePath(filePath, '/') === normalizedCurrent) continue;
 
       if (!this._search.isFileIndexed(filePath)) {
         await this._search.indexFile(filePath);
+
+        const found = this._search.getLocations(processId);
+        if (found.some(loc => loc.path !== normalizedCurrent)) break;
       }
     }
 
@@ -220,9 +229,7 @@ class CallActivityNavigatorPlugin extends PureComponent {
       const newFilesCount = this._knownFiles.size - knownFilesBefore;
       debug('discovered', newFilesCount, 'new files in', rootDir);
 
-      if (newFilesCount > 0) {
-        this._addedRoots.add(rootDir);
-      }
+      this._addedRoots.add(rootDir);
     } catch (err) {
       error('add-root failed:', err);
     }
@@ -244,10 +251,11 @@ class CallActivityNavigatorPlugin extends PureComponent {
           const file = await fileSystem.readFile(candidatePath);
           if (file?.contents) {
             const processIds = extractProcessIds(file.contents);
+            this._index.setFileIndex(candidatePath, processIds);
             if (processIds.includes(processId)) {
-              this._knownFiles.add(candidatePath);
-              await this._search.indexFile(candidatePath);
-              return candidatePath;
+              const normalizedCandidate = normalizePath(candidatePath, '/');
+              this._knownFiles.add(normalizedCandidate);
+              return normalizedCandidate;
             }
           }
         } catch {
@@ -259,18 +267,22 @@ class CallActivityNavigatorPlugin extends PureComponent {
   }
 
   _buildCandidateNames(processId) {
-    return [
+    return [...new Set([
       `${processId}.bpmn`,
       `${processId.replace(/_/g, '-')}.bpmn`,
       `${processId.replace(/-/g, '_')}.bpmn`
-    ];
+    ])];
   }
 
   _buildParentDirs(currentDir, pathSep, maxLevels) {
+    if (!currentDir) return [currentDir];
+
     const dirs = [currentDir];
     let dir = currentDir;
     for (let i = 0; i < maxLevels; i++) {
-      dir = `${dir}${pathSep}..`;
+      const parent = normalizePath(`${dir}${pathSep}..`, pathSep);
+      if (!parent || parent === dir || parent === '.') break;
+      dir = parent;
       dirs.push(dir);
     }
     return dirs;

@@ -55,8 +55,8 @@ describe('normalizePath', () => {
       assert.equal(normalizePath('/a/./b/./c', '/'), '/a/b/c');
     });
 
-    test('reduces a single current-dir dot to empty string', () => {
-      assert.equal(normalizePath('.', '/'), '');
+    test('reduces a single current-dir dot to dot', () => {
+      assert.equal(normalizePath('.', '/'), '.');
     });
 
     test('resolves relative parent traversal to sibling', () => {
@@ -107,12 +107,12 @@ describe('normalizePath', () => {
   });
 
   describe('edge cases', () => {
-    test('returns null unchanged', () => {
-      assert.equal(normalizePath(null, '/'), null);
+    test('returns empty string for null', () => {
+      assert.equal(normalizePath(null, '/'), '');
     });
 
-    test('returns undefined unchanged', () => {
-      assert.equal(normalizePath(undefined, '/'), undefined);
+    test('returns empty string for undefined', () => {
+      assert.equal(normalizePath(undefined, '/'), '');
     });
 
     test('returns empty string unchanged', () => {

@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { extractProcessIds } from '../client/bpmn-parser.mjs';
 
 describe('extractProcessIds - CDATA handling', () => {
-  it('matches process-like strings inside CDATA (known regex limitation)', () => {
+  it('ignores process-like strings inside CDATA', () => {
     const xml = `<bpmn:definitions>
   <bpmn:process id="Real_Process">
     <bpmn:script><![CDATA[
@@ -13,8 +13,6 @@ describe('extractProcessIds - CDATA handling', () => {
   </bpmn:process>
 </bpmn:definitions>`;
 
-    // Regex parser cannot distinguish CDATA content from real XML,
-    // so both IDs are matched. This documents the known limitation.
-    assert.deepEqual(extractProcessIds(xml), ['Real_Process', 'Fake_Process']);
+    assert.deepEqual(extractProcessIds(xml), ['Real_Process']);
   });
 });

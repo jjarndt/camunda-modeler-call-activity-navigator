@@ -7,18 +7,49 @@ const ONE_DAY_MS  = 24 * 60 * 60 * 1000;
 
 const NO_UPDATE = Object.freeze({ available: false });
 
-function stripPreRelease(version) {
-  return version.replace(/[-+].*$/, '');
+function cleanVersion(version) {
+  if (!version || typeof version !== 'string') return '';
+  return version.replace(/^v/, '').replace(/[-+].*$/, '');
+}
+
+function hasPreRelease(version) {
+  if (!version || typeof version !== 'string') return false;
+  const withoutV = version.replace(/^v/, '');
+  return /-/.test(withoutV);
+}
+
+function isValidVersionStr(str) {
+  return /^\d+(\.\d+){0,2}$/.test(str);
+}
+
+function isSafeUrl(url) {
+  try {
+    const { protocol, hostname } = new URL(url);
+    return protocol === 'https:' &&
+      (hostname === 'github.com' || hostname.endsWith('.github.com'));
+  } catch {
+    return false;
+  }
 }
 
 export function isNewerVersion(current, latest) {
-  const currentParts = stripPreRelease(current).split('.').map(Number);
-  const latestParts  = stripPreRelease(latest).split('.').map(Number);
+  const currentStr = cleanVersion(current);
+  const latestStr  = cleanVersion(latest);
+
+  if (!isValidVersionStr(currentStr) || !isValidVersionStr(latestStr)) return false;
+
+  const currentParts = currentStr.split('.').map(Number);
+  const latestParts  = latestStr.split('.').map(Number);
 
   for (let i = 0; i < 3; i++) {
-    if ((latestParts[i] || 0) > (currentParts[i] || 0)) return true;
-    if ((latestParts[i] || 0) < (currentParts[i] || 0)) return false;
+    const l = latestParts[i] || 0;
+    const c = currentParts[i] || 0;
+    if (l > c) return true;
+    if (l < c) return false;
   }
+
+  // Same version numbers: pre-release < stable
+  if (hasPreRelease(current) && !hasPreRelease(latest)) return true;
 
   return false;
 }
@@ -33,7 +64,9 @@ export async function checkForUpdate(currentVersion) {
 
     localStorage.setItem(THROTTLE_KEY, String(Date.now()));
 
-    const response = await fetch(RELEASES_URL);
+    const response = await fetch(RELEASES_URL, {
+      signal: AbortSignal.timeout(10_000)
+    });
 
     if (!response.ok) {
       return NO_UPDATE;
@@ -46,7 +79,8 @@ export async function checkForUpdate(currentVersion) {
       return NO_UPDATE;
     }
 
-    return { available: true, latest: latestVersion, url: data.html_url };
+    const url = isSafeUrl(data.html_url) ? data.html_url : RELEASES_URL;
+    return { available: true, latest: latestVersion, url };
   } catch (error) {
     debug('update check failed:', error);
     return NO_UPDATE;
