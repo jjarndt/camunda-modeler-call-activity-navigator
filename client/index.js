@@ -104,13 +104,18 @@ class CallActivityNavigatorPlugin extends PureComponent {
       }));
     });
 
-    subscribe('bpmn.modeler.created', ({ modeler }) => {
-      const eventBus = modeler.get('eventBus');
+    this._openProcessHandler = (event) => {
+      debug('openProcess:', event.processId);
+      this._handleOpenProcess(event.processId);
+    };
 
-      eventBus.on('callActivity.openProcess', (event) => {
-        debug('openProcess:', event.processId);
-        this._handleOpenProcess(event.processId);
-      });
+    subscribe('bpmn.modeler.created', ({ modeler }) => {
+      if (this._currentEventBus) {
+        this._currentEventBus.off('callActivity.openProcess', this._openProcessHandler);
+      }
+      const eventBus = modeler.get('eventBus');
+      this._currentEventBus = eventBus;
+      eventBus.on('callActivity.openProcess', this._openProcessHandler);
     });
   }
 

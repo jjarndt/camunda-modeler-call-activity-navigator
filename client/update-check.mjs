@@ -16,7 +16,7 @@ function cleanVersion(version) {
 
 function hasPreRelease(version) {
   if (!version || typeof version !== 'string') return false;
-  const withoutV = version.replace(/^v/i, '');
+  const withoutV = version.replace(/^v/i, '').replace(/\+.*$/, '');
   return /-/.test(withoutV);
 }
 
@@ -61,11 +61,29 @@ export function isNewerVersion(current, latest) {
   // Same version numbers: pre-release < stable
   if (hasPreRelease(current) && !hasPreRelease(latest)) return true;
 
-  // Both pre-release with same version: compare suffixes lexicographically
+  // Both pre-release with same version: compare per SemVer 11.4
   if (hasPreRelease(current) && hasPreRelease(latest)) {
-    const cSuffix = extractPreRelease(current);
-    const lSuffix = extractPreRelease(latest);
-    return lSuffix > cSuffix;
+    const cParts = extractPreRelease(current).split('.');
+    const lParts = extractPreRelease(latest).split('.');
+    const len = Math.max(cParts.length, lParts.length);
+    for (let i = 0; i < len; i++) {
+      if (i >= cParts.length) return true;   // fewer fields = lower precedence
+      if (i >= lParts.length) return false;
+      const cNum = /^\d+$/.test(cParts[i]) ? Number(cParts[i]) : null;
+      const lNum = /^\d+$/.test(lParts[i]) ? Number(lParts[i]) : null;
+      if (cNum !== null && lNum !== null) {
+        if (lNum > cNum) return true;
+        if (lNum < cNum) return false;
+      } else if (cNum !== null) {
+        return false; // numeric < string per SemVer
+      } else if (lNum !== null) {
+        return true;
+      } else {
+        if (lParts[i] > cParts[i]) return true;
+        if (lParts[i] < cParts[i]) return false;
+      }
+    }
+    return false;
   }
 
   return false;
@@ -90,7 +108,7 @@ export async function checkForUpdate(currentVersion) {
     localStorage.setItem(THROTTLE_KEY, String(Date.now()));
 
     const data = await response.json();
-    const latestVersion = (data.tag_name || '').replace(/^v/, '');
+    const latestVersion = (data.tag_name || '').replace(/^v/, '').replace(/[<>"'&]/g, '');
 
     if (!latestVersion || !isNewerVersion(currentVersion, latestVersion)) {
       return NO_UPDATE;

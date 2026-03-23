@@ -29,6 +29,11 @@ function extractWindowsRoot(path) {
     if (uncMatch) {
       return consumeRootSep(uncMatch[0], path.slice(uncMatch[0].length));
     }
+    // Partial UNC (server only, no share): \\server or //server
+    const partialUnc = path.match(/^(?:\\\\|\/\/)[^\\/]+/);
+    if (partialUnc) {
+      return { root: partialUnc[0], rest: path.slice(partialUnc[0].length), hasRootSep: false };
+    }
   }
 
   // Drive letter: C:
@@ -69,10 +74,11 @@ export function normalizePath(inputPath, preferredSep) {
     const part = stripControlChars(rawPart);
     if (!part || part === '.') continue;
     if (part === '..') {
+      // Only treat as ".." if the raw segment was exactly ".." (no control chars injected)
       if (rawPart === '..') {
         if (normalized.length && normalized[normalized.length - 1] !== '..') {
           normalized.pop();
-        } else if (!root) {
+        } else if (!root || !hasRootSep) {
           normalized.push('..');
         }
       }

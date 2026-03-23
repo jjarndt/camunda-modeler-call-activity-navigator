@@ -10,15 +10,24 @@ export class ProcessIndex {
     return this._processesByFile.has(normalizePath(filePath, '/'));
   }
 
+  _rawLocations(processId) {
+    let key;
+    try {
+      key = (processId != null && typeof processId !== 'string') ? String(processId) :
+        (typeof processId === 'string' ? processId.trim() : processId);
+    } catch {
+      return [];
+    }
+    return this._locationsByProcess.get(key) || [];
+  }
+
   getLocations(processId) {
-    const key = (processId != null && typeof processId !== 'string') ? String(processId) :
-      (typeof processId === 'string' ? processId.trim() : processId);
-    return (this._locationsByProcess.get(key) || []).map(loc => ({ ...loc }));
+    return this._rawLocations(processId).map(loc => ({ ...loc }));
   }
 
   setFileIndex(filePath, processIds) {
     filePath = normalizePath(filePath, '/');
-    if (!filePath || !filePath.trim()) return;
+    if (!filePath || !filePath.trim() || filePath === '.' || filePath === '..') return;
     this.removeFile(filePath);
 
     const uniqueProcessIds = new Set(

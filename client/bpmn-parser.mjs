@@ -60,7 +60,7 @@ function stripNonContent(str) {
       noMoreCdata = true;
     }
 
-    if (noMoreComments && noMoreCdata) break;
+    if (noMoreComments && noMoreCdata && noMorePIs) break;
     searchFrom = idx + 2;
   }
 
@@ -69,7 +69,7 @@ function stripNonContent(str) {
   return chunks.join('');
 }
 
-const PROCESS_TAG_RE = /<(?:bpmn2?:)?process\s/g;
+const PROCESS_TAG_RE = /<(?:[a-zA-Z][\w]*:)?process\s/g;
 const MAX_SLOW_SCAN = 5000;
 const SAFE_PROCESS_ID = /^[^\s/\\<>"']+$/;
 
@@ -133,6 +133,7 @@ export function extractProcessIds(content) {
   if (!content || typeof content !== 'string') return [];
 
   const stripped = stripNonContent(content);
+  const seen = new Set();
   const ids = [];
 
   PROCESS_TAG_RE.lastIndex = 0;
@@ -140,7 +141,10 @@ export function extractProcessIds(content) {
   while ((match = PROCESS_TAG_RE.exec(stripped)) !== null) {
     if (isInsideAttributeValue(stripped, match.index)) continue;
     const id = extractIdFromTag(stripped, match.index + match[0].length);
-    if (id && SAFE_PROCESS_ID.test(id)) ids.push(id);
+    if (id && SAFE_PROCESS_ID.test(id) && !seen.has(id)) {
+      seen.add(id);
+      ids.push(id);
+    }
   }
 
   return ids;

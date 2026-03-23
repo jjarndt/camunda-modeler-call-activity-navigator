@@ -41,6 +41,7 @@ export class NavigatorSearch {
     this._fileSystem = fileSystem;
     this._index = index;
     this._indexingPromises = new Map();
+    this._indexVersion = new Map();
   }
 
   isFileIndexed(filePath) {
@@ -49,6 +50,8 @@ export class NavigatorSearch {
 
   invalidateFile(filePath) {
     this._index.removeFile(filePath);
+    const normalized = normalizePath(filePath, '/');
+    this._indexVersion.set(normalized, (this._indexVersion.get(normalized) || 0) + 1);
   }
 
   getLocations(processId) {
@@ -72,13 +75,18 @@ export class NavigatorSearch {
   }
 
   async _doIndexFile(filePath) {
+    const normalized = normalizePath(filePath, '/');
+    const versionBefore = this._indexVersion.get(normalized) || 0;
     try {
       const file = await this._fileSystem.readFile(filePath);
+      const versionAfter = this._indexVersion.get(normalized) || 0;
+      if (versionAfter !== versionBefore) return; // invalidated during read
       const processIds = extractProcessIds(file?.contents || '');
       this._index.setFileIndex(filePath, processIds);
     } catch (err) {
       if (err instanceof TypeError) throw err;
-      // Mark as indexed with no processes to avoid repeated I/O failures
+      const versionAfter = this._indexVersion.get(normalized) || 0;
+      if (versionAfter !== versionBefore) return;
       this._index.setFileIndex(filePath, []);
     }
   }
@@ -109,18 +117,22 @@ export class NavigatorSearch {
     for (const filePath of candidates) {
       const normalizedFilePath = normalizePath(filePath, '/');
 
-      // Skip re-indexing if a case-variant is already indexed for this process
-      const existingLocs = this.getLocations(processId);
-      if (existingLocs.some(loc => pathsEqualIgnoreCase(loc.path, normalizedFilePath))) {
+      // Skip if already found for this process
+      const rawLocs = this._index._rawLocations(processId);
+      if (rawLocs.some(loc => pathsEqualIgnoreCase(loc.path, normalizedFilePath))) {
         break;
       }
 
       if (!this.isFileIndexed(filePath)) {
-        await this.indexFile(filePath);
-      }
+        try {
+          await this.indexFile(filePath);
+        } catch {
+          continue;
+        }
 
-      const found = this.getLocations(processId);
-      if (found.some(loc => pathsEqualIgnoreCase(loc.path, normalizedFilePath))) break;
+        const found = this._index._rawLocations(processId);
+        if (found.some(loc => pathsEqualIgnoreCase(loc.path, normalizedFilePath))) break;
+      }
     }
 
     const allLocations = this.getLocations(processId);
@@ -137,7 +149,11 @@ export class NavigatorSearch {
   }
 
   findBestMatch(locations, currentFilePath) {
-    const valid = locations.filter(loc => loc?.path);
+    if (!Array.isArray(locations)) return null;
+    const normalizedCurrent = currentFilePath ? normalizePath(currentFilePath, '/') : null;
+    const valid = locations.filter(loc =>
+      loc?.path && (!normalizedCurrent || !pathsEqualIgnoreCase(normalizePath(loc.path, '/'), normalizedCurrent))
+    );
     if (!valid.length) return null;
     if (valid.length === 1 || !currentFilePath) {
       return valid[0];
