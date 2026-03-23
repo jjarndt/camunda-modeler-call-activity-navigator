@@ -7,7 +7,7 @@ function stripNonContent(str) {
   let noMorePIs = false;
 
   while (searchFrom < str.length) {
-    let piIdx = noMorePIs ? -1 : str.indexOf('<?', searchFrom);
+    const piIdx = noMorePIs ? -1 : str.indexOf('<?', searchFrom);
     if (piIdx === -1) noMorePIs = true;
     const commentIdx = str.indexOf('<!', searchFrom);
 

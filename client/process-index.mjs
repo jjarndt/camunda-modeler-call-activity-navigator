@@ -13,7 +13,7 @@ export class ProcessIndex {
   _rawLocations(processId) {
     let key;
     try {
-      key = (processId != null && typeof processId !== 'string') ? String(processId) :
+      key = (processId !== null && processId !== undefined && typeof processId !== 'string') ? String(processId) :
         (typeof processId === 'string' ? processId.trim() : processId);
     } catch {
       return [];
