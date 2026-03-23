@@ -119,15 +119,7 @@ export async function checkForUpdate(currentVersion) {
     }
 
     const url = isSafeUrl(data.html_url) ? data.html_url : RELEASES_PAGE_URL;
-
-    let downloadUrl = null;
-    const assets = Array.isArray(data.assets) ? data.assets : [];
-    const zipAsset = assets.find(a => a.name && a.name.endsWith('.zip'));
-    if (zipAsset && isSafeUrl(zipAsset.browser_download_url)) {
-      downloadUrl = zipAsset.browser_download_url;
-    }
-
-    return { available: true, latest: latestVersion, url, downloadUrl };
+    return { available: true, latest: latestVersion, url };
   } catch (error) {
     debug('update check failed:', error);
     return NO_UPDATE;

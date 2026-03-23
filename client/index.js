@@ -80,120 +80,20 @@ class CallActivityNavigatorPlugin extends PureComponent {
 
   _scheduleUpdateCheck() {
     setTimeout(() => {
-      checkForUpdate(__PLUGIN_VERSION__).then(async result => {
+      checkForUpdate(__PLUGIN_VERSION__).then(result => {
         debug('update check result:', JSON.stringify(result));
-        if (!result.available) return;
-
-        if (result.downloadUrl) {
-          try {
-            await this._autoUpdate(result);
-            return;
-          } catch (err) {
-            error('auto-update failed, showing manual hint:', err);
-          }
+        if (result.available) {
+          this._displayNotification({
+            type: 'info',
+            title: 'Update available',
+            content: `Call Activity Navigator v${result.latest} is available. Visit GitHub Releases to update.`,
+            link: { label: 'GitHub Releases', href: result.url }
+          });
         }
-
-        this._displayNotification({
-          type: 'info',
-          title: 'Update available',
-          content: `Call Activity Navigator v${result.latest} is available. Run: curl -fsSL https://raw.githubusercontent.com/jjarndt/camunda-modeler-call-activity-navigator/master/install.sh | bash`
-        });
       }).catch(err => {
         error('update check error:', err);
       });
     }, UPDATE_CHECK_DELAY_MS);
-  }
-
-  async _autoUpdate(result) {
-    debug('auto-update: downloading', result.downloadUrl);
-
-    const response = await fetch(result.downloadUrl, {
-      signal: AbortSignal.timeout(30_000)
-    });
-    if (!response.ok) throw new Error(`Download failed: ${response.status}`);
-
-    const blob = await response.blob();
-    const arrayBuffer = await blob.arrayBuffer();
-    const bytes = new Uint8Array(arrayBuffer);
-
-    const pluginDir = this._resolvePluginDir();
-    if (!pluginDir) throw new Error('Could not determine plugin directory');
-
-    debug('auto-update: extracting to', pluginDir);
-    await this._extractZip(bytes, pluginDir);
-
-    debug('auto-update: v' + result.latest + ' installed');
-    this._displayNotification({
-      type: 'success',
-      title: 'Plugin updated',
-      content: `Call Activity Navigator updated to v${result.latest}. Restart Camunda Modeler to apply.`
-    });
-  }
-
-  _resolvePluginDir() {
-    try {
-      // eslint-disable-next-line no-undef
-      const nodeRequire = window.require || (typeof __non_webpack_require__ !== 'undefined' ? __non_webpack_require__ : null);
-      if (!nodeRequire) return null;
-
-      const fs = nodeRequire('fs');
-      const path = nodeRequire('path');
-
-      const candidates = [
-        path.join(process.env.HOME || '', 'Library/Application Support/camunda-modeler/plugins/camunda-modeler-call-activity-navigator'),
-        path.join(process.env.HOME || '', '.config/camunda-modeler/plugins/camunda-modeler-call-activity-navigator'),
-        path.join(process.env.APPDATA || '', 'camunda-modeler/plugins/camunda-modeler-call-activity-navigator')
-      ];
-
-      for (const dir of candidates) {
-        if (fs.existsSync(path.join(dir, 'index.js'))) return dir;
-      }
-    } catch {
-      // Not in Node context
-    }
-    return null;
-  }
-
-  async _extractZip(zipBytes, targetDir) {
-    // eslint-disable-next-line no-undef
-    const nodeRequire = window.require || __non_webpack_require__;
-    const fs = nodeRequire('fs');
-    const path = nodeRequire('path');
-    const { execSync } = nodeRequire('child_process');
-    const os = nodeRequire('os');
-
-    const tmpZip = path.join(os.tmpdir(), `can-update-${Date.now()}.zip`);
-    fs.writeFileSync(tmpZip, Buffer.from(zipBytes));
-
-    try {
-      const tmpExtract = path.join(os.tmpdir(), `can-extract-${Date.now()}`);
-      fs.mkdirSync(tmpExtract, { recursive: true });
-
-      execSync(`unzip -qo "${tmpZip}" -d "${tmpExtract}"`);
-
-      // Find the plugin root inside the extracted dir
-      const entries = fs.readdirSync(tmpExtract);
-      const pluginRoot = entries.includes('index.js')
-        ? tmpExtract
-        : path.join(tmpExtract, entries.find(e => fs.statSync(path.join(tmpExtract, e)).isDirectory()) || '');
-
-      // Copy dist/client.js and index.js
-      const srcDist = path.join(pluginRoot, 'dist', 'client.js');
-      const srcIndex = path.join(pluginRoot, 'index.js');
-
-      if (fs.existsSync(srcDist)) {
-        fs.mkdirSync(path.join(targetDir, 'dist'), { recursive: true });
-        fs.copyFileSync(srcDist, path.join(targetDir, 'dist', 'client.js'));
-      }
-      if (fs.existsSync(srcIndex)) {
-        fs.copyFileSync(srcIndex, path.join(targetDir, 'index.js'));
-      }
-
-      // Cleanup
-      fs.rmSync(tmpExtract, { recursive: true, force: true });
-    } finally {
-      fs.unlinkSync(tmpZip);
-    }
   }
 
   _configureModeler(subscribe) {
