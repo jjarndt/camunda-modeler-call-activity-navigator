@@ -91,12 +91,16 @@ export function isNewerVersion(current, latest) {
 
 export async function checkForUpdate(currentVersion) {
   try {
+    debug('checking for updates, current version:', currentVersion);
+
     const lastCheck = localStorage.getItem(THROTTLE_KEY);
 
     if (lastCheck && Date.now() - Number(lastCheck) < ONE_DAY_MS) {
+      debug('update check throttled, last check:', new Date(Number(lastCheck)).toISOString());
       return NO_UPDATE;
     }
 
+    debug('fetching', RELEASES_URL);
     const response = await fetch(RELEASES_URL, {
       signal: AbortSignal.timeout(10_000)
     });
@@ -115,7 +119,15 @@ export async function checkForUpdate(currentVersion) {
     }
 
     const url = isSafeUrl(data.html_url) ? data.html_url : RELEASES_PAGE_URL;
-    return { available: true, latest: latestVersion, url };
+
+    let downloadUrl = null;
+    const assets = Array.isArray(data.assets) ? data.assets : [];
+    const zipAsset = assets.find(a => a.name && a.name.endsWith('.zip'));
+    if (zipAsset && isSafeUrl(zipAsset.browser_download_url)) {
+      downloadUrl = zipAsset.browser_download_url;
+    }
+
+    return { available: true, latest: latestVersion, url, downloadUrl };
   } catch (error) {
     debug('update check failed:', error);
     return NO_UPDATE;

@@ -85,7 +85,8 @@ describe('checkForUpdate', () => {
       assert.deepEqual(result, {
         available: true,
         latest: '2.0.0',
-        url: 'https://github.com/jjarndt/camunda-modeler-call-activity-navigator/releases/tag/v2.0.0'
+        url: 'https://github.com/jjarndt/camunda-modeler-call-activity-navigator/releases/tag/v2.0.0',
+        downloadUrl: null
       });
     });
 
