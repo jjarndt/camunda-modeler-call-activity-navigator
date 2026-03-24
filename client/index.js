@@ -10,10 +10,36 @@ import { waitForFileDiscovery } from './file-discovery.mjs';
 import { debug, error } from './log.mjs';
 import { checkForUpdate } from './update-check.mjs';
 
+// Rejects Windows reserved device names (CON, PRN, NUL, COM1-9, LPT1-9) that would
+// cause file creation to fail silently; allows alphanumeric, underscore, dash, and dot.
 const VALID_PROCESS_ID = /^(?!(?:CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])(?:\.|$))[a-zA-Z0-9_\-.]+$/i;
 const UPDATE_CHECK_DELAY_MS = 30_000;
+const MAX_PARENT_DIR_TRAVERSAL = 5;
+// Captures the path prefix up to a "processes/" or "bpmn/" directory, used as project
+// root for sibling file discovery (e.g. "src/main/bpmn/" -> scans that subtree).
 const BPMN_ROOT_PATTERN = /^((?:[^\\/]*[\\/])*(?:processes|bpmn))[\\/]/;
 
+function createSerialQueue() {
+  let pending = null;
+  return async (fn) => {
+    const previous = pending;
+    const current = (async () => {
+      if (previous) await previous;
+      return fn();
+    })();
+    pending = current;
+    try {
+      return await current;
+    } finally {
+      if (pending === current) {
+        pending = null;
+      }
+    }
+  };
+}
+
+// Checks multiple properties because the Modeler file-context API uses different
+// shapes across versions and event types; defensive to avoid missed removals.
 function isFileRemoval(item) {
   return item.type === 'removed' ||
     item.type === 'deleted' ||
@@ -32,6 +58,7 @@ class CallActivityNavigatorPlugin extends PureComponent {
     this._triggerAction = triggerAction;
     this._displayNotification = displayNotification;
     this._getGlobal = _getGlobal;
+
     this._activeTab = null;
     this._index = new ProcessIndex();
     this._search = new NavigatorSearch({
@@ -40,60 +67,17 @@ class CallActivityNavigatorPlugin extends PureComponent {
     });
     this._knownFiles = new Set();
     this._fileContextListeners = [];
-    this._searchInProgress = null;
+    this._enqueue = createSerialQueue();
     this._backend = _getGlobal('backend');
     this._addedRoots = new Set();
 
     this._backend.on('file-context:changed', (_, items) => this._onFileContextChanged(items));
-
     subscribe('app.activeTabChanged', ({ activeTab }) => {
       this._activeTab = activeTab;
     });
 
-    this._scheduleUpdateCheck();
     this._configureModeler(subscribe);
-  }
-
-  _onFileContextChanged(items) {
-    if (!items) return;
-
-    for (const item of items) {
-      const filePath = item.file?.path;
-      if (!filePath || !filePath.endsWith('.bpmn')) continue;
-
-      if (isFileRemoval(item)) {
-        this._knownFiles.delete(filePath);
-        this._search.invalidateFile(filePath);
-        continue;
-      }
-
-      this._knownFiles.add(filePath);
-      this._search.invalidateFile(filePath);
-    }
-
-    debug('file-context:changed, knownFiles:', this._knownFiles.size);
-
-    for (const listener of this._fileContextListeners) {
-      listener();
-    }
-  }
-
-  _scheduleUpdateCheck() {
-    setTimeout(() => {
-      checkForUpdate(__PLUGIN_VERSION__).then(result => {
-        debug('update check result:', JSON.stringify(result));
-        if (result.available) {
-          this._displayNotification({
-            type: 'info',
-            title: 'Update available',
-            content: `Call Activity Navigator v${result.latest} is available. Visit GitHub Releases to update.`,
-            link: { label: 'GitHub Releases', href: result.url }
-          });
-        }
-      }).catch(err => {
-        error('update check error:', err);
-      });
-    }, UPDATE_CHECK_DELAY_MS);
+    this._scheduleUpdateCheck();
   }
 
   _configureModeler(subscribe) {
@@ -122,20 +106,50 @@ class CallActivityNavigatorPlugin extends PureComponent {
     });
   }
 
-  async _handleOpenProcess(processId) {
-    const previous = this._searchInProgress;
-    const current = (async () => {
-      if (previous) await previous;
-      return this._doHandleOpenProcess(processId);
-    })();
-    this._searchInProgress = current;
-    try {
-      await current;
-    } finally {
-      if (this._searchInProgress === current) {
-        this._searchInProgress = null;
+  _scheduleUpdateCheck() {
+    setTimeout(() => {
+      checkForUpdate(__PLUGIN_VERSION__).then(result => {
+        debug('update check result:', JSON.stringify(result));
+        if (result.available) {
+          this._displayNotification({
+            type: 'info',
+            title: 'Update available',
+            content: `Call Activity Navigator v${result.latest} is available. Visit GitHub Releases to update.`,
+            link: { label: 'GitHub Releases', href: result.url }
+          });
+        }
+      }).catch(err => {
+        error('update check error:', err);
+      });
+    }, UPDATE_CHECK_DELAY_MS);
+  }
+
+  _onFileContextChanged(items) {
+    if (!items) return;
+
+    for (const item of items) {
+      const filePath = item.file?.path;
+      if (!filePath || !filePath.endsWith('.bpmn')) continue;
+
+      if (isFileRemoval(item)) {
+        this._knownFiles.delete(filePath);
+        this._search.invalidateFile(filePath);
+        continue;
       }
+
+      this._knownFiles.add(filePath);
+      this._search.invalidateFile(filePath);
     }
+
+    debug('file-context:changed, knownFiles:', this._knownFiles.size);
+
+    for (const listener of this._fileContextListeners) {
+      listener();
+    }
+  }
+
+  _handleOpenProcess(processId) {
+    return this._enqueue(() => this._doHandleOpenProcess(processId));
   }
 
   async _doHandleOpenProcess(processId) {
@@ -179,12 +193,57 @@ class CallActivityNavigatorPlugin extends PureComponent {
     this._warn('Process not found', `Could not find "${processId}". Please open the file manually.`);
   }
 
-  _openDiagram(path) {
-    this._triggerAction('open-diagram', { path });
+  async _tryRelativePaths(processId, currentFilePath) {
+    const pathSep = getPathSeparator(currentFilePath);
+    const currentDir = parentDir(currentFilePath);
+    const fileSystem = this._getGlobal('fileSystem');
+
+    const candidateNames = this._buildCandidateNames(processId);
+    const parentDirs = this._buildParentDirs(currentDir, pathSep, MAX_PARENT_DIR_TRAVERSAL);
+
+    for (const searchDir of parentDirs) {
+      for (const name of candidateNames) {
+        const candidatePath = normalizePath(`${searchDir}${pathSep}${name}`, pathSep);
+
+        try {
+          const file = await fileSystem.readFile(candidatePath);
+          if (!file?.contents) continue;
+
+          const processIds = extractProcessIds(file.contents);
+          this._index.setFileIndex(candidatePath, processIds);
+          if (!processIds.includes(processId)) continue;
+
+          const normalizedCandidate = normalizePath(candidatePath, '/');
+          this._knownFiles.add(normalizedCandidate);
+          return normalizedCandidate;
+        } catch {
+        }
+      }
+    }
+
+    return null;
   }
 
-  _warn(title, content) {
-    this._displayNotification({ type: 'warning', title, content });
+  _buildCandidateNames(processId) {
+    return [...new Set([
+      `${processId}.bpmn`,
+      `${processId.replace(/_/g, '-')}.bpmn`,
+      `${processId.replace(/-/g, '_')}.bpmn`
+    ])];
+  }
+
+  _buildParentDirs(currentDir, pathSep, maxLevels) {
+    if (!currentDir) return [currentDir];
+
+    const dirs = [currentDir];
+    let dir = currentDir;
+    for (let i = 0; i < maxLevels; i++) {
+      const parent = normalizePath(`${dir}${pathSep}..`, pathSep);
+      if (!parent || parent === dir || parent === '.') break;
+      dir = parent;
+      dirs.push(dir);
+    }
+    return dirs;
   }
 
   async _searchInSiblingDirs(processId, currentFilePath) {
@@ -219,10 +278,6 @@ class CallActivityNavigatorPlugin extends PureComponent {
     return null;
   }
 
-  _waitForFileDiscovery() {
-    return waitForFileDiscovery(this._fileContextListeners);
-  }
-
   async _discoverRoot(rootDir) {
     if (this._addedRoots.has(rootDir)) return;
 
@@ -240,57 +295,16 @@ class CallActivityNavigatorPlugin extends PureComponent {
     }
   }
 
-  async _tryRelativePaths(processId, currentFilePath) {
-    const pathSep = getPathSeparator(currentFilePath);
-    const currentDir = parentDir(currentFilePath);
-    const fileSystem = this._getGlobal('fileSystem');
-
-    const candidateNames = this._buildCandidateNames(processId);
-    const parentDirs = this._buildParentDirs(currentDir, pathSep, 5);
-
-    for (const searchDir of parentDirs) {
-      for (const name of candidateNames) {
-        const candidatePath = normalizePath(`${searchDir}${pathSep}${name}`, pathSep);
-
-        try {
-          const file = await fileSystem.readFile(candidatePath);
-          if (file?.contents) {
-            const processIds = extractProcessIds(file.contents);
-            this._index.setFileIndex(candidatePath, processIds);
-            if (processIds.includes(processId)) {
-              const normalizedCandidate = normalizePath(candidatePath, '/');
-              this._knownFiles.add(normalizedCandidate);
-              return normalizedCandidate;
-            }
-          }
-        } catch {
-        }
-      }
-    }
-
-    return null;
+  _waitForFileDiscovery() {
+    return waitForFileDiscovery(this._fileContextListeners);
   }
 
-  _buildCandidateNames(processId) {
-    return [...new Set([
-      `${processId}.bpmn`,
-      `${processId.replace(/_/g, '-')}.bpmn`,
-      `${processId.replace(/-/g, '_')}.bpmn`
-    ])];
+  _openDiagram(path) {
+    this._triggerAction('open-diagram', { path });
   }
 
-  _buildParentDirs(currentDir, pathSep, maxLevels) {
-    if (!currentDir) return [currentDir];
-
-    const dirs = [currentDir];
-    let dir = currentDir;
-    for (let i = 0; i < maxLevels; i++) {
-      const parent = normalizePath(`${dir}${pathSep}..`, pathSep);
-      if (!parent || parent === dir || parent === '.') break;
-      dir = parent;
-      dirs.push(dir);
-    }
-    return dirs;
+  _warn(title, content) {
+    this._displayNotification({ type: 'warning', title, content });
   }
 
   render() {
