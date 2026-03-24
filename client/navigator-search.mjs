@@ -1,9 +1,5 @@
 import { extractProcessIds } from './bpmn-parser.mjs';
-import { normalizePath } from './path-utils.mjs';
-
-function parentDir(filePath) {
-  return filePath.split(/[/\\]/).slice(0, -1).join('/');
-}
+import { normalizePath, parentDir, pathsEqualIgnoreCase } from './path-utils.mjs';
 
 function commonPrefixLength(dirA, dirB) {
   if (!dirA || !dirB) return 0;
@@ -27,11 +23,6 @@ function commonPrefixLength(dirA, dirB) {
 
 function isValidPath(filePath) {
   return filePath && typeof filePath === 'string' && filePath.trim() !== '';
-}
-
-function pathsEqualIgnoreCase(a, b) {
-  if (!a || !b) return false;
-  return a.toLowerCase() === b.toLowerCase();
 }
 
 export class NavigatorSearch {

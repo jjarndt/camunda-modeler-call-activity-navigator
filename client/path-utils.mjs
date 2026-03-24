@@ -56,6 +56,15 @@ function stripControlChars(str) {
   return str.replace(/[\x00-\x1f\x7f]/g, '');
 }
 
+export function parentDir(filePath) {
+  return filePath.split(/[/\\]/).slice(0, -1).join('/');
+}
+
+export function pathsEqualIgnoreCase(a, b) {
+  if (!a || !b) return false;
+  return a.toLowerCase() === b.toLowerCase();
+}
+
 export function normalizePath(inputPath, preferredSep) {
   if (!inputPath || typeof inputPath !== 'string') return '';
 

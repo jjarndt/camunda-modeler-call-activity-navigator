@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.3] - 2026-03-24
+
+### Added
+- Silent auto-update check via GitHub releases with user notification
+
+### Fixed
+- Restored broken SVG path in context pad icon
+- Resolved 34 additional bugs found by systematic 6-category analysis with regression tests
+- Relaxed timing thresholds in performance tests for CI stability
+- Resolved eslint errors (prefer-const, eqeqeq)
+
+### Changed
+- Simplified update check to notification with GitHub link instead of auto-download
+- Renamed all test files from bug-IDs to descriptive module.topic names for better readability
+
 ## [1.2.2] - 2026-03-22
 
 ### Fixed
@@ -78,6 +93,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Automatically indexes all BPMN files in project directories
 - Supports both platform-specific implementations (Camunda 7 and 8)
 
+[1.2.3]: https://github.com/jjarndt/camunda-modeler-call-activity-navigator/releases/tag/v1.2.3
 [1.2.2]: https://github.com/jjarndt/camunda-modeler-call-activity-navigator/releases/tag/v1.2.2
 [1.2.1]: https://github.com/jjarndt/camunda-modeler-call-activity-navigator/releases/tag/v1.2.1
 [1.2.0]: https://github.com/jjarndt/camunda-modeler-call-activity-navigator/releases/tag/v1.2.0

@@ -2,7 +2,7 @@ import { PureComponent } from 'react';
 import { registerClientExtension } from 'camunda-modeler-plugin-helpers';
 
 import CallActivityContextPadModule from './bpmn-extension';
-import { getPathSeparator, normalizePath } from './path-utils.mjs';
+import { getPathSeparator, normalizePath, parentDir } from './path-utils.mjs';
 import { ProcessIndex } from './process-index.mjs';
 import { NavigatorSearch } from './navigator-search.mjs';
 import { extractProcessIds } from './bpmn-parser.mjs';
@@ -161,7 +161,7 @@ class CallActivityNavigatorPlugin extends PureComponent {
     }
 
     // Known files
-    const foundInKnown = await this._searchInKnownFiles(processId, currentFilePath);
+    const foundInKnown = await this._search.searchInKnownFiles(processId, currentFilePath, this._knownFiles);
     if (foundInKnown) return this._openDiagram(foundInKnown);
 
     // Relative paths
@@ -185,10 +185,6 @@ class CallActivityNavigatorPlugin extends PureComponent {
 
   _warn(title, content) {
     this._displayNotification({ type: 'warning', title, content });
-  }
-
-  async _searchInKnownFiles(processId, currentFilePath) {
-    return this._search.searchInKnownFiles(processId, currentFilePath, this._knownFiles);
   }
 
   async _searchInSiblingDirs(processId, currentFilePath) {
@@ -246,7 +242,7 @@ class CallActivityNavigatorPlugin extends PureComponent {
 
   async _tryRelativePaths(processId, currentFilePath) {
     const pathSep = getPathSeparator(currentFilePath);
-    const currentDir = currentFilePath.split(/[/\\]/).slice(0, -1).join(pathSep);
+    const currentDir = parentDir(currentFilePath);
     const fileSystem = this._getGlobal('fileSystem');
 
     const candidateNames = this._buildCandidateNames(processId);

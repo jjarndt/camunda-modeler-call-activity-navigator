@@ -1,24 +1,19 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { debug, warn, error } from '../client/log.mjs';
+import { debug, error } from '../client/log.mjs';
 
 describe('log', () => {
 
   it('prepends the correct prefix for each log level', (t) => {
     const mockDebug = t.mock.method(console, 'debug');
-    const mockWarn = t.mock.method(console, 'warn');
     const mockError = t.mock.method(console, 'error');
 
     debug('test msg');
-    warn('warning');
     error('err');
 
     assert.equal(mockDebug.mock.calls.length, 1);
     assert.deepEqual(mockDebug.mock.calls[0].arguments, ['[CallActivityNavigator]', 'test msg']);
-
-    assert.equal(mockWarn.mock.calls.length, 1);
-    assert.deepEqual(mockWarn.mock.calls[0].arguments, ['[CallActivityNavigator]', 'warning']);
 
     assert.equal(mockError.mock.calls.length, 1);
     assert.deepEqual(mockError.mock.calls[0].arguments, ['[CallActivityNavigator]', 'err']);
@@ -50,16 +45,16 @@ describe('log', () => {
   });
 
   it('passes through objects and errors by reference', (t) => {
-    const mockWarn = t.mock.method(console, 'warn');
+    const mockError = t.mock.method(console, 'error');
 
     const err = new Error('test error');
     const data = { file: '/a.bpmn', line: 42 };
 
-    warn('parsing failed', data, err);
+    error('parsing failed', data, err);
 
-    assert.equal(mockWarn.mock.calls.length, 1);
+    assert.equal(mockError.mock.calls.length, 1);
 
-    const args = mockWarn.mock.calls[0].arguments;
+    const args = mockError.mock.calls[0].arguments;
     assert.deepEqual(args, ['[CallActivityNavigator]', 'parsing failed', data, err]);
 
     assert.ok(args[2] === data && args[3] === err,

@@ -1,21 +1,15 @@
 /**
- * Bug-Logik-005: extractProcessIds regex uses [\s>] after "bpmn:process",
- * allowing '>' to match. This means the regex can "escape" the opening tag
- * and match id="..." in the XML body, producing false positives.
- *
- * Example: <bpmn:process> followed by a child element with id="FakeProcess"
- * should NOT be extracted, but the regex may match it.
+ * Verify extractProcessIds does not produce false positives when a
+ * process tag's > allows the regex to escape into subsequent child
+ * elements' id attributes.
  */
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { extractProcessIds } from '../client/bpmn-parser.mjs';
 
-describe('BUG-LOGIK-005: extractProcessIds false positive from > in [\s>]', () => {
+describe('extractProcessIds - tag escape false positive prevention', () => {
 
-  it('should NOT extract id from child element after <bpmn:process> (no attributes)', () => {
-    // Here <bpmn:process> has no id attribute itself (contrived but legal).
-    // The regex [\s>] can match >, then the rest of the regex tries to find
-    // id="..." in the body content that follows.
+  it('does not extract id from child element after <bpmn:process> (no attributes)', () => {
     const xml = [
       '<bpmn:definitions>',
       '  <bpmn:process>',
@@ -25,18 +19,11 @@ describe('BUG-LOGIK-005: extractProcessIds false positive from > in [\s>]', () =
     ].join('\n');
 
     const ids = extractProcessIds(xml);
-
-    // The correct behavior: no process id should be extracted because
-    // <bpmn:process> has no id attribute. The startEvent id is not a process id.
-    assert.deepEqual(
-      ids,
-      [],
-      `Expected [] but got ${JSON.stringify(ids)}. The regex matched a non-process id due to > in [\\s>].`
-    );
+    assert.deepStrictEqual(ids, [],
+      `Expected [] but got ${JSON.stringify(ids)}`);
   });
 
-  it('should NOT extract id from a subsequent element when process tag has > before id', () => {
-    // Process has name but no id, followed by a task with id
+  it('does not extract id from subsequent element when process tag closes before id', () => {
     const xml = [
       '<bpmn:definitions>',
       '  <bpmn:process name="Test">',
@@ -46,11 +33,7 @@ describe('BUG-LOGIK-005: extractProcessIds false positive from > in [\s>]', () =
     ].join('\n');
 
     const ids = extractProcessIds(xml);
-
-    assert.deepEqual(
-      ids,
-      [],
-      `Expected [] but got ${JSON.stringify(ids)}. Regex escaped through > and matched task id.`
-    );
+    assert.deepStrictEqual(ids, [],
+      `Expected [] but got ${JSON.stringify(ids)}`);
   });
 });
