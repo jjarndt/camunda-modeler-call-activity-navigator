@@ -9,6 +9,7 @@ import { extractProcessIds } from './bpmn-parser.mjs';
 import { waitForFileDiscovery } from './file-discovery.mjs';
 import { debug, error } from './log.mjs';
 import { checkForUpdate } from './update-check.mjs';
+import { createSerialQueue } from './serial-queue.mjs';
 
 // Rejects Windows reserved device names (CON, PRN, NUL, COM1-9, LPT1-9) that would
 // cause file creation to fail silently; allows alphanumeric, underscore, dash, and dot.
@@ -18,25 +19,6 @@ const MAX_PARENT_DIR_TRAVERSAL = 5;
 // Captures the path prefix up to a "processes/" or "bpmn/" directory, used as project
 // root for sibling file discovery (e.g. "src/main/bpmn/" -> scans that subtree).
 const BPMN_ROOT_PATTERN = /^((?:[^\\/]*[\\/])*(?:processes|bpmn))[\\/]/;
-
-function createSerialQueue() {
-  let pending = null;
-  return async (fn) => {
-    const previous = pending;
-    const current = (async () => {
-      if (previous) await previous;
-      return fn();
-    })();
-    pending = current;
-    try {
-      return await current;
-    } finally {
-      if (pending === current) {
-        pending = null;
-      }
-    }
-  };
-}
 
 // Checks multiple properties because the Modeler file-context API uses different
 // shapes across versions and event types; defensive to avoid missed removals.
