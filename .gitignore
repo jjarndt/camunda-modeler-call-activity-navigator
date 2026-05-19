@@ -11,3 +11,4 @@ release/
 .claude/
 .warden/
 coverage/
+/tmp/modeler-*.jsonl
