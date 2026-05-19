@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.5] - 2026-05-19
+
+### Fixed
+- Call activity icon clicks silently dropped after the first navigation. Each tab owns its own modeler/eventBus; the previous code detached the listener on every `bpmn.modeler.created` and reattached only to the latest modeler, so previously opened tabs ended up with no listener. The plugin now attaches once per modeler for its full lifetime — the listener dies with the modeler on tab close, no detach needed.
+
 ## [1.2.4] - 2026-05-19
 
 ### Fixed

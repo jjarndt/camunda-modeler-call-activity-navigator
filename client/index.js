@@ -78,13 +78,13 @@ class CallActivityNavigatorPlugin extends PureComponent {
       this._handleOpenProcess(event.processId);
     };
 
+    // Each tab has its own modeler with its own eventBus. We attach to every
+    // newly created modeler and never detach: the listener is per-modeler, so
+    // duplicates are impossible, and it dies with the modeler on tab close.
+    // Detaching on tab switch (as we did before) left the listener gone when
+    // the user returned to a previously opened tab.
     subscribe('bpmn.modeler.created', ({ modeler }) => {
-      if (this._currentEventBus) {
-        this._currentEventBus.off('callActivity.openProcess', this._openProcessHandler);
-      }
-      const eventBus = modeler.get('eventBus');
-      this._currentEventBus = eventBus;
-      eventBus.on('callActivity.openProcess', this._openProcessHandler);
+      modeler.get('eventBus').on('callActivity.openProcess', this._openProcessHandler);
     });
   }
 
